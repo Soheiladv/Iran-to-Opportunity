@@ -202,7 +202,7 @@ SEARCH
 
 ## 👥 پروفایل متقاضیان
 
-### 👨 توحید ارجمند (Tohid Arjmand)
+### 👨 نمونه متقاضی ۱ — مدیر IT
 
 | ویژگی | مقدار |
 |-------|-------|
@@ -213,18 +213,16 @@ SEARCH
 | **تمرکز** | IT Operations / Infrastructure / Management |
 | **مهارت‌ها** | Windows Server, VMware, Cisco, MikroTik, Python, SQL |
 | **زبان** | English A2, German A1 |
-| **LinkedIn** | [tohid-arjmand](https://www.linkedin.com/in/tohid-arjmand) |
 
-### 👩 ندا ارجمند (Neda Arjmand)
+### 👩 نمونه متقاضی ۲ — ماما (Midwife)
 
 | ویژگی | مقدار |
 |-------|-------|
 | **سن** | 38 |
 | **کشور** | ایران |
 | **حرفه** | ماما (Midwife) |
-| **محل کار** | بیمارستان میلاد تهران |
+| **محل کار** | بیمارستان دولتی تهران |
 | **زبان** | English A2, German A1 |
-| **LinkedIn** | [neda-arjmand](https://www.linkedin.com/in/neda-arjmand/) |
 
 ---
 
@@ -529,6 +527,7 @@ MIT License — استفاده آزاد با ذکر منبع
 ## 📞 تماس
 
 **GitHub:** [Iran-to-Opportunity](https://github.com/Soheiladv/Iran-to-Opportunity)
+**Issues:** [GitHub Issues](https://github.com/Soheiladv/Iran-to-Opportunity/issues)
 
 ---
 

@@ -3,9 +3,7 @@
 # حفاظت از اطلاعات شخصی
 # ==============================================
 
-# ---- اطلاعات شخصی (حذف قبل از push) ----
-profiles/TOHID_PROFILE.md
-profiles/NEDA_PROFILE.md
+# ---- اطلاعات شخصی (فایل‌های واقعی) ----
 profiles/CV_NEDA.md
 profiles/CV_TOHID.md
 memory/APPLICATION_BANK.md
