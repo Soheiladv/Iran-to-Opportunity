@@ -1,0 +1,56 @@
+# ==============================================
+# Iran-to-Opportunity — .gitignore
+# حفاظت از اطلاعات شخصی
+# ==============================================
+
+# ---- اطلاعات شخصی (حذف قبل از push) ----
+profiles/TOHID_PROFILE.md
+profiles/NEDA_PROFILE.md
+profiles/CV_NEDA.md
+profiles/CV_TOHID.md
+memory/APPLICATION_BANK.md
+output/EMAILS_TO_SEND.md
+output/email_*.txt
+
+# ---- تنظیمات محلی و API Keys ----
+.env
+.env.local
+config.json
+secrets.json
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Excel تmp ----
+*.xlsx.tmp
+~$*.xlsx
+
+# ---- آرشیو ----
+archive/
+
+# ---- فایل‌های بزرگ ----
+*.log
+*.tmp
+
+# ---- Python cache ----
+*.pyc
+*.pyo
