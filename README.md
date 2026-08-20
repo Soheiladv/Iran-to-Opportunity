@@ -6,7 +6,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-6.0-blue)
+![Version](https://img.shields.io/badge/version-7.0-blue)
 ![Python](https://img.shields.io/badge/Python-3.10+-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
@@ -237,15 +237,29 @@ SEARCH
 | 🇦🇺 **استرالیا** | 482 Visa، آژانس‌های فعال | TSS Visa + Employer Sponsorship |
 | 🇨🇦 **کانادا** | Express Entry، Atlantic Immigration | LMIA + Provincial Nominee |
 
-### Tier 2 — اولویت دوم
+### Tier 2 — اروپا و سایر
 
-| کشور | دلیل |
-|------|-------|
-| 🇦🇹 اتریش | Red-White-Red Card |
-| 🇮🇪 ایرلند | Critical Skills Visa |
-| 🇳🇱 هلند | Orientation Year + Highly Skilled Migrant |
-| 🇸🇪 اسکاندیناوی | کمبود نیروی بهداشت |
-| 🇬🇧 بریتانیا | Health and Care Worker Visa |
+| کشور | دلیل | مسیر |
+|------|-------|------|
+| 🇦🇹 اتریش | Red-White-Red Card | RWR Card |
+| 🇮🇪 ایرلند | Critical Skills Visa | Critical Skills |
+| 🇳🇱 هلند | Highly Skilled Migrant | Kennismigrant |
+| 🇸🇪 سوئد | کمبود بهداشت | Work Permit |
+| 🇳🇴 نروژ | کمبود بهداشت | Skilled Worker |
+| 🇩🇰 دانمارک | Positive List | Pay Limit |
+| 🇫🇮 فنلاند | کمبود IT | Residence Permit |
+| 🇬🇧 بریتانیا | Health & Care Visa | Skilled Worker |
+| 🇨🇭 سوئیس | دستمزد بالا | Work Permit |
+| 🇧🇪 بلژیک | EU Blue Card | Highly Skilled |
+| 🇵🇹 پرتغال | D1 Visa | Work Visa |
+| 🇪🇸 اسپانیا | EU Blue Card | Skilled Worker |
+| 🇮🇹 ایتالیا | Decreto Flussi | Work Permit |
+| 🇫🇷 فرانسه | Talent Passport | Passeport Talent |
+| 🇵🇱 لهستان | کمبود IT | Work Permit |
+| 🇨🇿 چک | Blue Card | EU Blue Card |
+| 🇭🇺 مجارستان | White Card | Work Permit |
+| 🇷🇴 رومانی | EU member | Work Permit |
+| 🇭🇷 کرواسی | EU member | Work Permit |
 
 ---
 
@@ -403,21 +417,24 @@ Flag کن:
 
 ## 📊 داشبورد Excel
 
-### شیت‌های داشبورد
+### شیت‌های داشبورد (دوزبانه)
 
-| شیت | محتوا |
-|------|-------|
-| 📊 **داشبورد** | خلاصه + مقایسه + نمودار |
-| 👩 **ندا — فرصت‌ها** | فرصت‌ها + لینک + ایمیل + کاور لیتر |
-| 👨 **توحید — فرصت‌ها** | فرصت‌ها + لینک + ایمیل + کاور لیتر |
-| 🌍 **مقایسه کشورها** | ۴ کشور + سناریوها + نمودار |
-| 🏢 **کارفرمایان** | لیست کارفرمایان شناسایی شده |
-| 📧 **ایمیل‌ها** | ایمیل‌های آماده ارسال |
-| 📝 **کاور لیتر** | کاور لیترهای آماده |
-| 🛂 **ویزا** | اطلاعات ویزای هر کشور |
-| 📋 **ثبت‌نام** | ثبت‌نام حرفه‌ای |
-| 📝 **زبان** | وضعیت زبان — جستجو بدون توقف |
-| 🎯 **اقدامات** | ۵ اقدام برتر روزانه |
+| شیت | عنوان | محتوا |
+|------|-------|-------|
+| 📊 | **داشبورد \| Dashboard** | خلاصه + آمار |
+| 🌍 | **کشورها \| Countries** | ۲۴ کشور + اولویت |
+| 🔗 | **لینکدین \| LinkedIn** | لیست لینکدین‌ها |
+| 👤 | **پروفایل \| Profile** | هر لینکدین یک شیت جدا |
+| 👩 | **ندا \| Neda Jobs** | فرصت‌های مامایی |
+| 👨 | **توحید \| Tohid Jobs** | فرصت‌های IT |
+| 📈 | **مقایسه \| Comparison** | مقایسه کشورها |
+| 📧 | **ایمیل‌ها \| Emails** | ایمیل‌های آماده |
+| 📝 | **کاور لیتر \| Cover Letter** | کاور لیترهای آماده |
+| 🛂 | **ویزا \| Visa** | اطلاعات ویزا |
+| 📋 | **ثبت‌نام \| Registration** | ثبت‌نام حرفه‌ای |
+| 📝 | **زبان \| Language** | وضعیت زبان |
+| 🎯 | **اقدامات \| Actions** | ۵ اقدام برتر |
+| ⚠️ | **نقاط ضعف \| Weaknesses** | تحلیل لینکدین |
 
 ### تنظیمات فونت و RTL
 
@@ -448,15 +465,40 @@ Flag کن:
 | `کاور لیتر ندا آماده کن` | تولید کاور لیتر |
 | `CV ندا آپدیت کن` | بروزرسانی CV |
 
-### دستورات جستجوی کشور
+### دستورات جستجوی کشور (پارامتری)
 
-| دستور | توضیح |
-|-------|--------|
-| `nz را جستجو کن` | نیوزیلند |
-| `de را جستجو کن` | آلمان |
-| `au را جستجو کن` | استرالیا |
-| `ca را جستجو کن` | کانادا |
-| `اروپا را جستجو کن` | اروپا |
+```bash
+# جستجوی تعاملی — لیست کشورها نمایش داده می‌شود
+python run_search.py --interactive
+
+# جستجوی همه کشورها (۲۴ کشور)
+python run_search.py --country all --excel
+
+# فقط Tier 1
+python run_search.py --country tier1 --excel
+
+# فقط اروپا (۲۰ کشور)
+python run_search.py --country europe --excel
+
+# انتخابی
+python run_search.py --country nz,de,ca,au --excel
+```
+
+### مدیریت لینکدین
+
+```bash
+# لیست لینکدین‌ها
+python run_search.py --linkedin-list
+
+# اضافه کردن لینکدین جدید
+python run_search.py --linkedin-add \
+  --li-name "Ali Reza" \
+  --li-url "https://www.linkedin.com/in/alireza" \
+  --li-profession "Nurse" \
+  --li-applicant "NEDA"
+```
+
+> هر لینکدین جدید خودکار یک شیت اختصاصی در Excel دریافت می‌کند.
 
 ---
 
@@ -492,11 +534,11 @@ Flag کن:
 
 | ردیف | متقاضی | اقدام | کشور |
 |------|--------|-------|------|
-| ۱ | 👩 ندا | تکمیل فرم Working In Health NZ | 🇳🇿 |
-| ۲ | 👩 ندا | ایمیل Holalemania | 🇩🇪 |
-| ۳ | 👩 ندا | ارسال CV RGH Global | 🇳🇿 |
-| ۴ | 👩 ندا | ارسال CV Health New Zealand | 🇳🇿 |
-| ۵ | 👨 توحید | جستجوی دقیق IT آلمان | 🇩🇪 |
+| ۱ | 👩 ندا | ارسال CV به Saskatchewan HA | 🇨🇦 |
+| ۲ | 👩 ندا | ثبت‌نام Hays Healthcare | 🇦🇺 |
+| ۳ | 👩 ندا | پیگیری Working In Health NZ | 🇳🇿 |
+| ۴ | 👩 ندا | آمادگی OET | 🌍 |
+| ۵ | 👨 توحید | جستجوی IT آلمان/اتریش | 🇩🇪🇦🇹 |
 
 ---
 
