@@ -5,13 +5,19 @@ MigrationHunter — Unified Dashboard Builder
 
 اجرا: python build_dashboard.py
 """
-import os, re, glob
+import os, sys, re, glob, io
 from datetime import datetime, timedelta
 from openpyxl import Workbook
 from openpyxl.styles import (Font, Alignment, PatternFill, Border, Side,
                               numbers)
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, PieChart, Reference
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 # ═══════════════════════════════════════════════════
 # CONSTANTS

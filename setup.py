@@ -5,8 +5,14 @@ MigrationHunter — راه‌اندازی سیستم جدید
 
 اجرا: python setup.py
 """
-import os, json, shutil
+import os, sys, json, shutil, io
 from datetime import datetime
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 

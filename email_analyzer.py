@@ -23,9 +23,15 @@ Outlook/Office 365:
 Yahoo:
   1. Account Security → App passwords → Generate
 """
-import os, sys, re, json, email, imaplib, email.header
+import os, sys, re, json, email, imaplib, email.header, io
 from datetime import datetime, timedelta
 from collections import defaultdict
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MEM = os.path.join(BASE, "memory")
@@ -117,6 +123,52 @@ FOLLOWUP_KEYWORDS = [
 # ═══════════════════════════════════════════════════
 # EMPLOYER MATCHING
 # ═══════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════
+# BLACKLIST — ایمیل‌های غیرمرتبط با کار
+# ═══════════════════════════════════════════════════
+BLACKLIST_SENDERS = [
+    "google", "github", "coursera", "adobe", "freebuff",
+    "vercel", "linkedin", "facebook", "twitter",
+    "instagram", "tiktok", "youtube", "spotify",
+    "apple", "microsoft", "amazon", "paypal",
+    "steam", "epic", "riot", "blizzard",
+    "medium", "substack", "notion", "figma",
+    "canva", "chatgpt", "openai", "anthropic",
+    "claude", "bing", "yahoo", "outlook",
+    "dropbox", "icloud", "proton", "mailchimp",
+    "sendgrid", "twilio", "stripe", "shopify",
+]
+
+BLACKLIST_SUBJECTS = [
+    "welcome to", "terms of service", "privacy policy",
+    "security alert", "sign-in", "verify",
+    "password reset", "two-factor",
+    "confirm your", "verify your",
+    "save %", "discount", "offer ends",
+    "subscribe", "unsubscribe",
+    "weekly digest", "monthly newsletter",
+    "_saved", "important update",
+    "OAuth application",
+    "(광고)", # Korean spam
+    "بازیابی", # Google recovery
+    "خریز", # Claude data
+]
+
+def is_blacklisted(sender, subject):
+    """بررسی اینکه ایمیل در لیست سیاه هست یا نه"""
+    sender_lower = sender.lower()
+    subject_lower = subject.lower()
+    
+    for bl in BLACKLIST_SENDERS:
+        if bl in sender_lower:
+            return True, f"sender:{bl}"
+    
+    for bl in BLACKLIST_SUBJECTS:
+        if bl.lower() in subject_lower:
+            return True, f"subject:{bl}"
+    
+    return False, ""
+
 KNOWN_EMPLOYERS = {
     "health new zealand": {"name": "Health New Zealand", "country": "NZ", "type": "Government"},
     "healthnz": {"name": "Health New Zealand", "country": "NZ", "type": "Government"},
@@ -328,7 +380,15 @@ class EmailAnalyzer:
             "sentiment": "neutral",
         }
         
-        # Check if job-related
+        # STEP 1: Check blacklist FIRST — reject non-job emails
+        blacklisted, reason = is_blacklisted(from_addr, subject)
+        if blacklisted:
+            classification["category"] = "spam"
+            classification["is_job_related"] = False
+            classification["sentiment"] = "neutral"
+            return classification
+        
+        # STEP 2: Check if job-related with STRICT matching
         matched_keywords = []
         for kw in JOB_KEYWORDS:
             if kw.lower() in full_text:
@@ -340,41 +400,59 @@ class EmailAnalyzer:
         if not classification["is_job_related"]:
             return classification
         
-        # Classify category
-        for kw in OFFER_KEYWORDS:
+        # STEP 3: Strict offer check — must have job-specific context
+        offer_strong = ["job offer", "offer letter", "pleased to offer",
+                       "start date", "compensation package"]
+        for kw in offer_strong:
             if kw in full_text:
-                classification["category"] = "offer"
-                classification["sentiment"] = "positive"
-                classification["urgency"] = "high"
-                return classification
+                # Extra check: must NOT be from known non-employers
+                if not any(bl in from_addr for bl in ["freebuff", "github", "coursera"]):
+                    classification["category"] = "offer"
+                    classification["sentiment"] = "positive"
+                    classification["urgency"] = "high"
+                    return classification
         
+        # STEP 4: Rejection — must be from actual employer/recruiter
         for kw in REJECTION_KEYWORDS:
             if kw in full_text:
-                classification["category"] = "rejection"
-                classification["sentiment"] = "negative"
-                return classification
+                # Extra check: must be from known employer or have job context
+                if any(emp in from_addr for emp in ["recruit", "hr", "career", "hiring"]):
+                    classification["category"] = "rejection"
+                    classification["sentiment"] = "negative"
+                    return classification
         
-        for kw in INTERVIEW_KEYWORDS:
+        # STEP 5: Interview — strong signal
+        interview_strong = ["interview", "screening call", "video call",
+                          "meet the team", "onsite"]
+        for kw in interview_strong:
             if kw in full_text:
                 classification["category"] = "interview"
                 classification["sentiment"] = "positive"
                 classification["urgency"] = "high"
                 return classification
         
+        # STEP 6: Follow-up
         for kw in FOLLOWUP_KEYWORDS:
             if kw in full_text:
                 classification["category"] = "follow_up"
                 classification["urgency"] = "medium"
                 return classification
         
-        # Check for application acknowledgment
+        # STEP 7: Application acknowledgment
         if any(w in full_text for w in ["received your", "thank you for applying", "application received"]):
             classification["category"] = "acknowledgment"
             classification["sentiment"] = "neutral"
             return classification
         
-        # Default: inquiry/response
-        classification["category"] = "inquiry"
+        # STEP 8: Default inquiry — only if strong job keywords present
+        strong_job = ["recruitment", "vacancy", "position", "hiring",
+                     "job", "employer", "sponsorship"]
+        if any(kw in full_text for kw in strong_job):
+            classification["category"] = "inquiry"
+            return classification
+        
+        # If no strong signal, mark as not job-related
+        classification["is_job_related"] = False
         return classification
     
     def match_employer(self, email_data):
@@ -725,8 +803,9 @@ def analyze_single_account(account, passwords, days=30, limit=200):
     pw_key = f"EMAIL_PASSWORD_{acc_id}"
     password = passwords.get(pw_key, "")
     
-    if not password or password.startswith("اینجا"):
+    if not password or "REPLACE" in password or len(password) < 10:
         print(f"  ⚠️ رمز {email} تنظیم نشده — رد شد")
+        print(f"     فایل .env را ویرایش کن و رمز 16 رقمی را وارد کن")
         return None
     
     print(f"\n{'='*50}")

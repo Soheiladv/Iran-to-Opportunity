@@ -3,12 +3,18 @@
 MigrationHunter — Email Analysis Excel — نسخه بازسازی شده
 جداول مرتب + عنوان ایمیل + جزئیات شغل + RTL + B Mitra
 """
-import os, json
+import os, sys, json, io
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import PieChart, Reference
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MEM = os.path.join(BASE, "memory")

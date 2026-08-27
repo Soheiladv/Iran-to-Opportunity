@@ -5,8 +5,14 @@ MigrationHunter — اسکریپت اصلی اجرا
 
 اجرا: python run.py
 """
-import os, sys, subprocess
+import os, sys, subprocess, io, codecs
 from datetime import datetime
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 os.chdir(BASE)
@@ -25,7 +31,9 @@ def run_step(name, script, args=None):
         cmd.extend(args)
     
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        env = os.environ.copy()
+        env['PYTHONIOENCODING'] = 'utf-8'
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300, encoding='utf-8', errors='replace', env=env)
         print(result.stdout)
         if result.stderr:
             # Only show real errors, not warnings

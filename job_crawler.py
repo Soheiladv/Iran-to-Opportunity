@@ -5,11 +5,17 @@ MigrationHunter — جستجوی خودکار کاریابی
 
 اجرا: python job_crawler.py
 """
-import os, json, re
+import os, sys, json, re, io
 from datetime import datetime
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 from html.parser import HTMLParser
+
+# Fix Windows console encoding for emoji support
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MEM = os.path.join(BASE, "memory")
