@@ -763,16 +763,23 @@ def save_to_memory(results, email_addr):
 # MAIN
 # ═══════════════════════════════════════════════════
 def load_accounts():
-    """Load email accounts from email_accounts.json"""
-    accounts_file = os.path.join(BASE, "email_accounts.json")
-    if not os.path.exists(accounts_file):
-        return []
-    with open(accounts_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    return [a for a in data.get("accounts", []) if a.get("active", True)]
+    """Load accounts from config.json — single source of truth"""
+    config = load_config()
+    accounts = []
+    for a in config.get("applicants", []):
+        accounts.append({
+            "id": a["id"],
+            "person": a["id"].upper(),
+            "person_fa": a.get("name_fa", a["id"]),
+            "email": a.get("email", ""),
+            "provider": "gmail",
+            "linkedin": a.get("linkedin", ""),
+            "active": bool(a.get("email")),
+        })
+    return accounts
 
 def load_env_passwords():
-    """Load passwords from .env"""
+    """Load passwords from .env — maps config IDs to .env keys"""
     passwords = {}
     env_file = os.path.join(BASE, ".env")
     if not os.path.exists(env_file):
@@ -780,10 +787,21 @@ def load_env_passwords():
     with open(env_file) as f:
         for line in f:
             line = line.strip()
-            if line.startswith("EMAIL_PASSWORD_"):
+            if line.startswith("EMAIL_PASSWORD_") and "=" in line:
                 key = line.split("=", 1)[0].strip()
                 val = line.split("=", 1)[1].strip().strip('"').strip("'")
                 passwords[key] = val
+    # Also map TOHID_1 / NEDA_1 style keys for backward compat
+    config = load_config()
+    for a in config.get("applicants", []):
+        app_id = a["id"].upper()
+        # Try EMAIL_PASSWORD_<ID>_1
+        key1 = f"EMAIL_PASSWORD_{app_id}_1"
+        if key1 not in passwords:
+            # Try lowercase
+            key2 = f"EMAIL_PASSWORD_{a['id']}_1"
+            if key2 in passwords:
+                passwords[key1] = passwords[key2]
     return passwords
 
 def analyze_single_account(account, passwords, days=30, limit=200):
@@ -795,9 +813,12 @@ def analyze_single_account(account, passwords, days=30, limit=200):
     person = account.get("person", "UNKNOWN")
     person_fa = account.get("person_fa", "?")
     
-    # Find password
-    pw_key = f"EMAIL_PASSWORD_{acc_id}"
+    # Find password — try ID_1, then ID
+    pw_key = f"EMAIL_PASSWORD_{acc_id}_1"
     password = passwords.get(pw_key, "")
+    if not password:
+        pw_key = f"EMAIL_PASSWORD_{acc_id}"
+        password = passwords.get(pw_key, "")
     
     if not password or "REPLACE" in password or len(password) < 10:
         print(f"  ⚠️ رمز {email} تنظیم نشده — رد شد")
@@ -850,7 +871,7 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="MigrationHunter Email Analyzer")
-    parser.add_argument("--email", help="Single email (overrides email_accounts.json)")
+    parser.add_argument("--email", help="Single email (overrides config.json)")
     parser.add_argument("--password", help="App Password")
     parser.add_argument("--provider", default="gmail")
     parser.add_argument("--account", help="Analyze specific account ID only")
@@ -882,7 +903,7 @@ def main():
     
     if not accounts:
         print("\n❌ حساب ایمیلی یافت نشد")
-        print("   فایل email_accounts.json یا .env را تنظیم کنید")
+        print("   فایل config.json یا .env را تنظیم کنید")
         sys.exit(1)
     
     # Filter by account ID if specified
@@ -894,8 +915,9 @@ def main():
     for account in accounts:
         if args.dry_run:
             email = account["email"]
-            password = passwords.get(f"EMAIL_PASSWORD_{account['id'].upper()}", "")
-            if not password or password.startswith("اینجا"):
+            acc_id = account["id"].upper()
+            password = passwords.get(f"EMAIL_PASSWORD_{acc_id}_1", "") or passwords.get(f"EMAIL_PASSWORD_{acc_id}", "")
+            if not password or password.startswith("اینجا") or "REPLACE" in password:
                 print(f"\n⚠️ {email}: رمز تنظیم نشده")
                 continue
             connector = EmailConnector(email, password, account.get("provider", "gmail"))
