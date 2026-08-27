@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
 """
-MigrationHunter — Email Analysis Excel
-تبدیل تحلیل ایمیل به Excel با شیت‌های جداگانه + آمار درصدی
+MigrationHunter — Email Analysis Excel — نسخه بازسازی شده
+جداول مرتب + عنوان ایمیل + جزئیات شغل + RTL + B Mitra
 """
 import os, json
 from datetime import datetime
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.chart import PieChart, BarChart, Reference
+from openpyxl.chart import PieChart, Reference
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MEM = os.path.join(BASE, "memory")
 DASH = os.path.join(BASE, "dashboard")
-OUT = os.path.join(BASE, "output")
 
 FONT_FA = "B Mitra"
 FONT_EN = "Times New Roman"
@@ -21,392 +20,471 @@ NOW = datetime.now()
 DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
 FILE_DATE = NOW.strftime("%Y%m%d_%H%M")
 
-# Colors
-C_DARK = "1B4F72"; C_MED = "2E86C1"; C_LIGHT = "D6EAF8"
-C_GREEN = "27AE60"; C_LGREEN = "D5F5E3"
-C_YELLOW = "F39C12"; C_LYELLOW = "FEF9E7"
-C_RED = "E74C3C"; C_LRED = "FADBD8"
-C_PURPLE = "8E44AD"; C_LPURPLE = "E8DAEF"
-C_GRAY = "95A5A6"; C_LGRAY = "F2F3F4"
-C_WHITE = "FFFFFF"; C_DARK2 = "2C3E50"
-C_ORANGE = "E67E22"; C_LORANGE = "FDEBD0"
+# ─── رنگ‌ها ───
+C = {
+    "dark": "1B4F72", "med": "2E86C1", "light": "D6EAF8",
+    "green": "27AE60", "lgreen": "D5F5E3",
+    "yellow": "F39C12", "lyellow": "FEF9E7",
+    "red": "E74C3C", "lred": "FADBD8",
+    "purple": "8E44AD", "lpurple": "E8DAEF",
+    "gray": "95A5A6", "lgray": "F2F3F4",
+    "white": "FFFFFF", "dark2": "2C3E50",
+    "orange": "E67E22", "lorange": "FDEBD0",
+}
 
 thin = Border(left=Side("thin"), right=Side("thin"),
               top=Side("thin"), bottom=Side("thin"))
 
+# ─── توابع کمکی ───
 def rtl(ws):
     ws.sheet_view.rightToLeft = True
 
-def fa(sz=10, bold=False, color="000000", italic=False):
-    return Font(name=FONT_FA, size=sz, bold=bold, color=color, italic=italic)
+def fa(sz=10, bold=False, color="000000"):
+    return Font(name=FONT_FA, size=sz, bold=bold, color=color)
 
 def en(sz=10, bold=False, color="000000"):
     return Font(name=FONT_EN, size=sz, bold=bold, color=color)
 
-def fill(c):
+def fl(c):
     return PatternFill(start_color=c, end_color=c, fill_type="solid")
 
 def ac(h="right", v="center", wrap=True):
     return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
 
-def center():
+def ctr():
     return Alignment(horizontal="center", vertical="center", wrap_text=True)
 
-def wc(ws, r, c, val, font=None, bg=None, align=None, border=True):
+def wc(ws, r, c, val, font=None, bg=None, align=None):
     cell = ws.cell(row=r, column=c, value=val)
     if font: cell.font = font
-    if bg: cell.fill = fill(bg)
-    if align: cell.alignment = align
-    else: cell.alignment = ac()
-    if border: cell.border = thin
+    if bg: cell.fill = fl(bg)
+    cell.alignment = align or ac()
+    cell.border = thin
     return cell
 
-def header_row(ws, row, cols, bg=C_DARK):
+def hdr(ws, row, cols, bg=C["dark"]):
     for c in range(1, cols + 1):
         cell = ws.cell(row=row, column=c)
-        cell.font = fa(sz=9, bold=True, color=C_WHITE)
-        cell.fill = fill(bg)
-        cell.alignment = center()
+        cell.font = fa(sz=9, bold=True, color=C["white"])
+        cell.fill = fl(bg)
+        cell.alignment = ctr()
         cell.border = thin
 
-def auto_width(ws, col, w):
+def aw(ws, col, w):
     ws.column_dimensions[get_column_letter(col)].width = w
 
 def freeze(ws, cell="A2"):
     ws.freeze_panes = cell
 
-# Category info
-CATEGORIES = {
-    "interview": {"label": "🗣️ مصاحبه", "color": C_GREEN, "bg": C_LGREEN, "emoji": "🗣️"},
-    "offer": {"label": "🎉 پیشنهاد کار", "color": C_PURPLE, "bg": C_LPURPLE, "emoji": "🎉"},
-    "rejection": {"label": "❌ رد شده", "color": C_RED, "bg": C_LRED, "emoji": "❌"},
-    "follow_up": {"label": "⏰ پیگیری", "color": C_YELLOW, "bg": C_LYELLOW, "emoji": "⏰"},
-    "inquiry": {"label": "💬 استعلام", "color": C_MED, "bg": C_LIGHT, "emoji": "💬"},
-    "acknowledgment": {"label": "📩 تأیید دریافت", "color": C_GRAY, "bg": C_LGRAY, "emoji": "📩"},
-    "unknown": {"label": "❓ نامشخص", "color": C_DARK2, "bg": C_LGRAY, "emoji": "❓"},
+# ─── دسته‌بندی ایمیل‌ها ───
+CAT = {
+    "interview":      {"fa": "🗣️ مصاحبه",        "color": C["green"],  "bg": C["lgreen"]},
+    "offer":          {"fa": "🎉 پیشنهاد کار",    "color": C["purple"], "bg": C["lpurple"]},
+    "rejection":      {"fa": "❌ رد شده",          "color": C["red"],    "bg": C["lred"]},
+    "follow_up":      {"fa": "⏰ پیگیری",         "color": C["yellow"], "bg": C["lyellow"]},
+    "inquiry":        {"fa": "💬 استعلام",         "color": C["med"],    "bg": C["light"]},
+    "acknowledgment": {"fa": "📩 تأیید دریافت",   "color": C["gray"],   "bg": C["lgray"]},
+    "spam":           {"fa": "🗑️ اسپم",           "color": C["gray"],   "bg": C["lgray"]},
+    "unknown":        {"fa": "❓ نامشخص",          "color": C["dark2"],  "bg": C["lgray"]},
 }
 
-def load_email_data():
-    filepath = os.path.join(MEM, "EMAIL_ANALYSIS.json")
-    if not os.path.exists(filepath):
-        print("❌ فایل EMAIL_ANALYSIS.json پیدا نشد")
-        print("   ابتدا: python email_analyzer.py")
+# ─── بارگذاری داده ───
+def load_data():
+    fp = os.path.join(MEM, "EMAIL_ANALYSIS.json")
+    if not os.path.exists(fp):
+        print("❌ EMAIL_ANALYSIS.json پیدا نشد — ابتدا python email_analyzer.py")
         return None
-    with open(filepath, "r", encoding="utf-8") as f:
+    with open(fp, "r", encoding="utf-8") as f:
         return json.load(f)
 
-def build_email_excel(data):
-    wb = Workbook()
-    wb.remove(wb.active)
-    
+# ─── شیت ۱: داشبورد ───
+def sheet_dashboard(wb, data):
+    ws = wb.create_sheet("داشبورد")
+    rtl(ws)
+
     emails = data.get("emails", [])
     total = data.get("total_emails", 0)
-    job_related = data.get("job_related", 0)
-    per_account = data.get("per_account", [])
-    
-    # Categorize
-    by_category = {}
+    job_rel = data.get("job_related", 0)
+    per_acc = data.get("per_account", [])
+
+    # عنوان
+    wc(ws, 1, 1, f"تحلیل ایمیل شغلی — {job_rel} ایمیل از {total} کل — {DATE_STR}",
+       font=fa(sz=14, bold=True, color=C["dark"]))
+    ws.merge_cells("A1:F1")
+
+    # KPI
+    r = 3
+    wc(ws, r, 1, "کل ایمیل‌ها", font=fa(sz=8, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 2, total, font=fa(sz=16, bold=True), align=ctr())
+    wc(ws, r, 3, "مرتبط با کار", font=fa(sz=8, bold=True, color=C["white"]), bg=C["green"], align=ctr())
+    pct = round(job_rel / total * 100) if total else 0
+    wc(ws, r, 4, f"{job_rel} ({pct}%)", font=fa(sz=16, bold=True, color=C["green"]), align=ctr())
+
+    # دسته‌بندی
+    r = 5
+    wc(ws, r, 1, "دسته‌بندی", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 2, "تعداد", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 3, "درصد", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    r += 1
+
+    by_cat = {}
     for e in emails:
         cat = e.get("category", "unknown")
-        if cat not in by_category:
-            by_category[cat] = []
-        by_category[cat].append(e)
-    
-    # By applicant
-    by_applicant = {"NEDA": [], "TOHID": [], "UNKNOWN": []}
-    for e in emails:
-        app = e.get("applicant", "UNKNOWN")
-        if app not in by_applicant:
-            by_applicant[app] = []
-        by_applicant[app].append(e)
-    
-    # ═══════════════════════════════════════
-    # Sheet 01: Dashboard with percentages
-    # ═══════════════════════════════════════
-    ws = wb.create_sheet("داشبورد ایمیل")
+        by_cat[cat] = by_cat.get(cat, 0) + 1
+
+    for ck in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+        info = CAT.get(ck, CAT["unknown"])
+        cnt = by_cat.get(ck, 0)
+        p = round(cnt / job_rel * 100) if job_rel else 0
+        wc(ws, r, 1, info["fa"], font=fa(sz=9, bold=True), bg=info["bg"], align=ctr())
+        wc(ws, r, 2, cnt, font=fa(sz=11, bold=True), align=ctr())
+        wc(ws, r, 3, f"{p}%", font=fa(sz=11, bold=True, color=info["color"]), align=ctr())
+        r += 1
+
+    # حساب‌ها
+    r += 1
+    wc(ws, r, 1, "حساب ایمیل", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 2, "شخص", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 3, "LinkedIn", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 4, "ایمیل شغلی", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 5, "درصد", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    r += 1
+
+    for pa in per_acc:
+        p = round(pa.get("job_related", 0) / job_rel * 100) if job_rel else 0
+        person = pa.get("person", "?")
+        app = "👩 ندا" if person == "NEDA" else "👨 توحید" if person == "TOHID" else person
+        wc(ws, r, 1, pa.get("email", ""), font=en(sz=9))
+        wc(ws, r, 2, app, font=fa(sz=9), align=ctr())
+        wc(ws, r, 3, pa.get("linkedin", ""), font=en(sz=8, color="0563C1"))
+        wc(ws, r, 4, pa.get("job_related", 0), font=fa(sz=10, bold=True), align=ctr())
+        wc(ws, r, 5, f"{p}%", font=fa(sz=10, bold=True, color=C["med"]), align=ctr())
+        r += 1
+
+    for i, w in enumerate([35, 12, 40, 12, 10]):
+        aw(ws, i + 1, w)
+    freeze(ws)
+
+# ─── شیت ۲: تمام ایمیل‌ها ───
+def sheet_all_emails(wb, data):
+    ws = wb.create_sheet("ایمیل‌های شغلی")
     rtl(ws)
+
+    emails = data.get("emails", [])
+    job_rel = data.get("job_related", 0)
+
+    wc(ws, 1, 1, f"ایمیل‌های شغلی — {job_rel} ایمیل", font=fa(sz=14, bold=True, color=C["dark"]))
+    ws.merge_cells("A1:I1")
+
+    # هدرها
+    headers = ["#", "تاریخ", "فرستنده", "عنوان ایمیل", "دسته", "متقاضی", "کارفرما", "کشور", "اقدام"]
+    r = 3
+    hdr(ws, r, len(headers))
+    for i, h in enumerate(headers):
+        ws.cell(row=r, column=i+1).value = h
+    r += 1
+
+    # داده‌ها — فقط شغلی‌ها
+    job_emails = [e for e in emails if e.get("category", "unknown") not in ["spam", "unknown"]]
     
-    wc(ws, 1, 1, f"تحلیل ایمیل شغلی — {DATE_STR}", font=fa(sz=16, bold=True, color=C_DARK))
-    ws.merge_cells("A1:H1")
-    
-    # KPI
-    wc(ws, 3, 1, "کل ایمیل‌ها", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-    wc(ws, 3, 2, total, font=fa(sz=18, bold=True, color=C_DARK), align=center())
-    wc(ws, 3, 3, "مرتبط با کار", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_GREEN, align=center())
-    pct_job = round(job_related / total * 100) if total else 0
-    wc(ws, 3, 4, f"{job_related} ({pct_job}%)", font=fa(sz=18, bold=True, color=C_GREEN), align=center())
-    
-    # Category breakdown with percentages
-    row = 6
-    wc(ws, row, 1, "دسته‌بندی ایمیل‌ها", font=fa(sz=12, bold=True, color=C_DARK))
-    ws.merge_cells(f"A{row}:H{row}")
-    row += 1
-    
-    cat_headers = ["دسته", "تعداد", "درصد", "نمودار"]
-    for i, h in enumerate(cat_headers):
-        wc(ws, row, i + 1, h, font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-    row += 1
-    
-    chart_start_row = row
-    for cat_key in ["interview", "offer", "rejection", "follow_up", "inquiry", "acknowledgment", "unknown"]:
-        info = CATEGORIES.get(cat_key, CATEGORIES["unknown"])
-        count = len(by_category.get(cat_key, []))
-        pct = round(count / job_related * 100) if job_related else 0
+    for idx, e in enumerate(sorted(job_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
+        cat = e.get("category", "unknown")
+        info = CAT.get(cat, CAT["unknown"])
+        app = e.get("applicant", "?")
+        app_label = "👩 ندا" if app == "NEDA" else "👨 توحید" if app == "TOHID" else "❓"
         
-        # Bar visualization
-        bar = "█" * max(1, round(pct / 5)) if pct > 0 else ""
+        employer = e.get("employer", "")
+        country = ""
+        if employer:
+            # استخراج کشور از نام کارفرما
+            emp_countries = {
+                "Health New Zealand": "🇳🇿 نیوزیلند", "RGH Global": "🇳🇿 نیوزیلند",
+                "Saskatchewan HA": "🇨🇦 کانادا", "Alberta Health Services": "🇨🇦 کانادا",
+                "Hays Healthcare": "🇦🇺 استرالیا", "Holalemania": "🇩🇪 آلمان",
+                "TalentOrange": "🇩🇪 آلمان", "Kate Cowhig": "🇮🇪 ایرلند",
+                "CPL Healthcare": "🇮🇪 ایرلند", "Work in Austria": "🇦🇹 اتریش",
+                "IND Netherlands": "🇳🇱 هلند", "Finncare": "🇫🇮 فنلاند",
+            }
+            country = emp_countries.get(employer, "")
+
+        # اقدام
+        action_map = {
+            "interview": "پاسخ + حضور",
+            "offer": "بررسی + تصمیم",
+            "rejection": "بایگانی",
+            "follow_up": "پیگیری",
+            "inquiry": "بررسی",
+            "acknowledgment": "تأیید",
+        }
+        action = action_map.get(cat, "")
+
+        vals = [
+            idx,
+            e.get("date", "")[:10],
+            e.get("from", "").split("<")[0].strip().strip('"')[:30],
+            e.get("subject", "")[:60],
+            info["fa"],
+            app_label,
+            employer,
+            country,
+            action,
+        ]
+
+        for ci, v in enumerate(vals):
+            bg = info["bg"] if ci == 4 else None
+            wc(ws, r, ci + 1, v, font=fa(sz=9), bg=bg)
+        r += 1
+
+    widths = [5, 12, 25, 55, 14, 10, 20, 16, 14]
+    for i, w in enumerate(widths):
+        aw(ws, i + 1, w)
+    freeze(ws, "A4")
+    ws.auto_filter.ref = f"A3:{get_column_letter(len(headers))}{r-1}"
+
+# ─── شیت ۳: بر اساس متقاضی ───
+def sheet_by_applicant(wb, data):
+    emails = data.get("emails", [])
+    per_acc = data.get("per_account", [])
+
+    for pa in per_acc:
+        person = pa.get("person", "?")
+        person_fa = "ندا" if person == "NEDA" else "توحید" if person == "TOHID" else person
+        color = C["purple"] if person == "NEDA" else C["med"]
+        linkedin = pa.get("linkedin", "")
+        email_addr = pa.get("email", "")
+
+        # فیلتر ایمیل‌های این شخص
+        person_emails = [e for e in emails if e.get("applicant") == person 
+                        or e.get("account_id", "").startswith(person.lower())]
         
-        wc(ws, row, 1, info["label"], font=fa(sz=10, bold=True), bg=info["bg"], align=center())
-        wc(ws, row, 2, count, font=fa(sz=12, bold=True), align=center())
-        wc(ws, row, 3, f"{pct}%", font=fa(sz=12, bold=True, color=info["color"]), align=center())
-        wc(ws, row, 4, bar, font=fa(sz=10, color=info["color"]), align=ac(h="left"))
-        row += 1
-    
+        if not person_emails:
+            person_emails = [e for e in emails]  # fallback: show all
+
+        ws = wb.create_sheet(f"{person_fa} — ایمیل‌ها")
+        rtl(ws)
+
+        # عنوان + لینکدین
+        wc(ws, 1, 1, f"{'👩' if person == 'NEDA' else '👨'} {person_fa} — ایمیل‌های شغلی",
+           font=fa(sz=14, bold=True, color=color))
+        ws.merge_cells("A1:H1")
+
+        wc(ws, 2, 1, f"📧 {email_addr}", font=en(sz=9))
+        wc(ws, 2, 3, f"🔗 {linkedin}", font=en(sz=9, color="0563C1"))
+        ws.merge_cells("C2:H2")
+
+        # آمار دسته‌بندی
+        r = 4
+        by_cat = {}
+        for e in person_emails:
+            cat = e.get("category", "unknown")
+            by_cat[cat] = by_cat.get(cat, 0) + 1
+
+        wc(ws, r, 1, "دسته", font=fa(sz=9, bold=True, color=C["white"]), bg=color, align=ctr())
+        wc(ws, r, 2, "تعداد", font=fa(sz=9, bold=True, color=C["white"]), bg=color, align=ctr())
+        wc(ws, r, 3, "درصد", font=fa(sz=9, bold=True, color=C["white"]), bg=color, align=ctr())
+        r += 1
+
+        total_job = sum(v for k, v in by_cat.items() if k not in ["spam", "unknown"])
+        for ck in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+            info = CAT.get(ck, CAT["unknown"])
+            cnt = by_cat.get(ck, 0)
+            p = round(cnt / total_job * 100) if total_job else 0
+            wc(ws, r, 1, info["fa"], font=fa(sz=9, bold=True), bg=info["bg"], align=ctr())
+            wc(ws, r, 2, cnt, font=fa(sz=10, bold=True), align=ctr())
+            wc(ws, r, 3, f"{p}%", font=fa(sz=10, bold=True, color=info["color"]), align=ctr())
+            r += 1
+
+        # جدول ایمیل‌ها
+        r += 1
+        headers = ["#", "تاریخ", "فرستنده", "عنوان ایمیل", "دسته", "کارفرما", "کشور", "اقدام"]
+        hdr(ws, r, len(headers), bg=color)
+        for i, h in enumerate(headers):
+            ws.cell(row=r, column=i+1).value = h
+        r += 1
+
+        for idx, e in enumerate(sorted(person_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
+            cat = e.get("category", "unknown")
+            if cat in ["spam", "unknown"]:
+                continue
+            info = CAT.get(cat, CAT["unknown"])
+            
+            action_map = {
+                "interview": "پاسخ + حضور", "offer": "بررسی + تصمیم",
+                "rejection": "بایگانی", "follow_up": "پیگیری", "inquiry": "بررسی",
+            }
+
+            vals = [
+                idx, e.get("date", "")[:10],
+                e.get("from", "").split("<")[0].strip().strip('"')[:30],
+                e.get("subject", "")[:60],
+                info["fa"], e.get("employer", ""), "", action_map.get(cat, ""),
+            ]
+            for ci, v in enumerate(vals):
+                bg = info["bg"] if ci == 4 else None
+                wc(ws, r, ci + 1, v, font=fa(sz=9), bg=bg)
+            r += 1
+
+        widths = [5, 12, 25, 55, 14, 20, 14, 14]
+        for i, w in enumerate(widths):
+            aw(ws, i + 1, w)
+        freeze(ws, "A6")
+
+# ─── شیت ۴: بر اساس دسته ───
+def sheet_by_category(wb, data):
+    emails = data.get("emails", [])
+
+    for ck in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+        cat_emails = [e for e in emails if e.get("category") == ck]
+        if not cat_emails:
+            continue
+
+        info = CAT[ck]
+        ws = wb.create_sheet(info["fa"].split(" ")[-1])
+        rtl(ws)
+
+        wc(ws, 1, 1, f"{info['fa']} — {len(cat_emails)} ایمیل",
+           font=fa(sz=14, bold=True, color=info["color"]))
+        ws.merge_cells("A1:H1")
+
+        headers = ["#", "تاریخ", "فرستنده", "عنوان ایمیل", "متقاضی", "کارفرما", "کشور", "اقدام"]
+        r = 3
+        hdr(ws, r, len(headers), bg=info["color"])
+        for i, h in enumerate(headers):
+            ws.cell(row=r, column=i+1).value = h
+        r += 1
+
+        action_map = {
+            "interview": "پاسخ + حضور", "offer": "بررسی + تصمیم",
+            "rejection": "بایگانی", "follow_up": "پیگیری", "inquiry": "بررسی",
+        }
+
+        for idx, e in enumerate(sorted(cat_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
+            app = e.get("applicant", "?")
+            app_label = "👩 ندا" if app == "NEDA" else "👨 توحید" if app == "TOHID" else "❓"
+
+            vals = [
+                idx, e.get("date", "")[:10],
+                e.get("from", "").split("<")[0].strip().strip('"')[:30],
+                e.get("subject", "")[:60],
+                app_label, e.get("employer", ""), "", action_map.get(ck, ""),
+            ]
+            for ci, v in enumerate(vals):
+                wc(ws, r, ci + 1, v, font=fa(sz=9))
+            r += 1
+
+        widths = [5, 12, 25, 55, 10, 20, 14, 14]
+        for i, w in enumerate(widths):
+            aw(ws, i + 1, w)
+        freeze(ws, "A4")
+
+# ─── شیت ۵: آمار و نمودار ───
+def sheet_stats(wb, data):
+    ws = wb.create_sheet("آمار")
+    rtl(ws)
+
+    emails = data.get("emails", [])
+    job_rel = data.get("job_related", 0)
+
+    wc(ws, 1, 1, "آمار تحلیل ایمیل", font=fa(sz=14, bold=True, color=C["dark"]))
+    ws.merge_cells("A1:D1")
+
+    # فرستنده‌های پرتکرار
+    r = 3
+    wc(ws, r, 1, "فرستنده", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 2, "تعداد", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    wc(ws, r, 3, "درصد", font=fa(sz=9, bold=True, color=C["white"]), bg=C["dark"], align=ctr())
+    r += 1
+
+    senders = {}
+    for e in emails:
+        s = e.get("from", "").split("<")[0].strip().strip('"')[:40]
+        if s: senders[s] = senders.get(s, 0) + 1
+
+    for s, cnt in sorted(senders.items(), key=lambda x: -x[1])[:15]:
+        p = round(cnt / job_rel * 100) if job_rel else 0
+        wc(ws, r, 1, s, font=fa(sz=9))
+        wc(ws, r, 2, cnt, font=fa(sz=10, bold=True), align=ctr())
+        wc(ws, r, 3, f"{p}%", font=fa(sz=10, color=C["med"]), align=ctr())
+        r += 1
+
     # Pie chart
     try:
         pie = PieChart()
         pie.title = "دسته‌بندی ایمیل‌ها"
         pie.style = 10
-        data_ref = Reference(ws, min_col=2, min_row=chart_start_row - 1, 
-                           max_row=row - 1)
-        cats_ref = Reference(ws, min_col=1, min_row=chart_start_row, 
-                           max_row=row - 1)
+        # Find the category table (rows 5-9 in dashboard)
+        # For now, create a mini data table
+        r += 2
+        by_cat = {}
+        for e in emails:
+            cat = e.get("category", "unknown")
+            by_cat[cat] = by_cat.get(cat, 0) + 1
+        
+        chart_start = r
+        for ck in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+            info = CAT.get(ck, CAT["unknown"])
+            cnt = by_cat.get(ck, 0)
+            wc(ws, r, 1, info["fa"], font=fa(sz=9))
+            wc(ws, r, 2, cnt, font=fa(sz=9), align=ctr())
+            r += 1
+
+        data_ref = Reference(ws, min_col=2, min_row=chart_start - 1, max_row=r - 1)
+        cats_ref = Reference(ws, min_col=1, min_row=chart_start, max_row=r - 1)
         pie.add_data(data_ref, titles_from_data=True)
         pie.set_categories(cats_ref)
-        pie.width = 18
-        pie.height = 12
-        ws.add_chart(pie, f"F{chart_start_row}")
+        pie.width = 16
+        pie.height = 10
+        ws.add_chart(pie, f"D{chart_start}")
     except:
         pass
-    
-    # Applicant breakdown
-    row += 1
-    wc(ws, row, 1, "بر اساس متقاضی", font=fa(sz=12, bold=True, color=C_DARK))
-    ws.merge_cells(f"A{row}:H{row}")
-    row += 1
-    
-    for app_key, app_label in [("TOHID", "👨 توحید"), ("NEDA", "👩 ندا"), ("UNKNOWN", "❓ نامشخص")]:
-        count = len(by_applicant.get(app_key, []))
-        pct = round(count / job_related * 100) if job_related else 0
-        wc(ws, row, 1, app_label, font=fa(sz=10, bold=True), align=center())
-        wc(ws, row, 2, count, font=fa(sz=12, bold=True), align=center())
-        wc(ws, row, 3, f"{pct}%", font=fa(sz=12, bold=True, color=C_MED), align=center())
-        row += 1
-    
-    # Top senders
-    row += 1
-    wc(ws, row, 1, "فرستنده‌های پرتکرار", font=fa(sz=12, bold=True, color=C_DARK))
-    ws.merge_cells(f"A{row}:H{row}")
-    row += 1
-    
-    senders = {}
-    for e in emails:
-        sender = e.get("from", "").split("<")[0].strip().strip('"')
-        if sender:
-            senders[sender] = senders.get(sender, 0) + 1
-    
-    for sender, count in sorted(senders.items(), key=lambda x: -x[1])[:10]:
-        pct = round(count / job_related * 100) if job_related else 0
-        wc(ws, row, 1, sender[:50], font=fa(sz=9))
-        wc(ws, row, 2, count, font=fa(sz=10, bold=True), align=center())
-        wc(ws, row, 3, f"{pct}%", font=fa(sz=10, color=C_MED), align=center())
-        row += 1
-    
-    # Per-account breakdown
-    if per_account:
-        row += 1
-        wc(ws, row, 1, "بر اساس حساب ایمیل", font=fa(sz=12, bold=True, color=C_DARK))
-        ws.merge_cells(f"A{row}:H{row}")
-        row += 1
-        wc(ws, row, 1, "حساب", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-        wc(ws, row, 2, "شخص", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-        wc(ws, row, 3, "LinkedIn", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-        wc(ws, row, 4, "ایمیل شغلی", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-        wc(ws, row, 5, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
-        row += 1
-        for pa in per_account:
-            pct = round(pa.get("job_related", 0) / job_related * 100) if job_related else 0
-            wc(ws, row, 1, pa.get("email", ""), font=en(sz=9))
-            person = pa.get("person", "?")
-            app_label = "👩 ندا" if person == "NEDA" else "👨 توحید" if person == "TOHID" else person
-            wc(ws, row, 2, app_label, font=fa(sz=9), align=center())
-            wc(ws, row, 3, pa.get("linkedin", ""), font=en(sz=8, color="0563C1"))
-            wc(ws, row, 4, pa.get("job_related", 0), font=fa(sz=10, bold=True), align=center())
-            wc(ws, row, 5, f"{pct}%", font=fa(sz=10, bold=True, color=C_MED), align=center())
-            row += 1
-    
-    # Widths
-    for i, w in enumerate([30, 10, 10, 40, 10, 10, 10, 10]):
-        auto_width(ws, i + 1, w)
-    freeze(ws, "A2")
-    
-    # ═══════════════════════════════════════
-    # Sheet 02: All job emails
-    # ═══════════════════════════════════════
-    ws2 = wb.create_sheet("تمام ایمیل‌ها")
-    rtl(ws2)
-    
-    wc(ws2, 1, 1, f"تمام ایمیل‌های شغلی — {job_related} ایمیل", font=fa(sz=14, bold=True, color=C_DARK))
-    ws2.merge_cells("A1:G1")
-    
-    headers = ["#", "تاریخ", "از", "موضوع", "دسته", "متقاضی", "کارفرما", "حساب"]
-    header_row(ws2, 3, len(headers))
-    for i, h in enumerate(headers):
-        ws2.cell(row=3, column=i+1).value = h
-    
-    row = 4
-    for idx, e in enumerate(sorted(emails, key=lambda x: x.get("date", ""), reverse=True), 1):
-        cat = e.get("category", "unknown")
-        info = CATEGORIES.get(cat, CATEGORIES["unknown"])
-        applicant = e.get("applicant", "?")
-        app_label = "👩 ندا" if applicant == "NEDA" else "👨 توحید" if applicant == "TOHID" else "❓"
-        
-        vals = [idx, e.get("date",""), e.get("from","")[:50], e.get("subject","")[:70],
-                info["label"], app_label, e.get("employer",""), e.get("account_id","")]
-        
-        for ci, v in enumerate(vals):
-            bg = info["bg"] if ci == 4 else None
-            wc(ws2, row, ci + 1, v, font=fa(sz=9), bg=bg)
-        row += 1
-    
-    widths = [5, 18, 40, 55, 16, 10, 20, 12]
-    for i, w in enumerate(widths): auto_width(ws2, i + 1, w)
-    freeze(ws2, "A4")
-    ws2.auto_filter.ref = f"A3:H{row-1}"
-    
-    # ═══════════════════════════════════════
-    # Sheets by category
-    # ═══════════════════════════════════════
-    for cat_key in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
-        cat_emails = by_category.get(cat_key, [])
-        if not cat_emails:
-            continue
-        
-        info = CATEGORIES[cat_key]
-        ws_cat = wb.create_sheet(info["label"].split(" ")[-1] if " " in info["label"] else cat_key)
-        rtl(ws_cat)
-        
-        wc(ws_cat, 1, 1, f"{info['label']} — {len(cat_emails)} ایمیل", 
-           font=fa(sz=14, bold=True, color=info["color"]))
-        ws_cat.merge_cells("A1:G1")
-        
-        cat_headers = ["#", "تاریخ", "از", "موضوع", "متقاضی", "کارفرما", "اقدام"]
-        header_row(ws_cat, 3, len(cat_headers), bg=info["color"])
-        for i, h in enumerate(cat_headers):
-            ws_cat.cell(row=3, column=i+1).value = h
-        
-        row = 4
-        for idx, e in enumerate(sorted(cat_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
-            applicant = e.get("applicant", "?")
-            app_label = "👩 ندا" if applicant == "NEDA" else "👨 توحید" if applicant == "TOHID" else "❓"
-            
-            action = ""
-            if cat_key == "interview": action = "پاسخ + حضور"
-            elif cat_key == "offer": action = "بررسی + تصمیم"
-            elif cat_key == "rejection": action = "بایگانی"
-            elif cat_key == "follow_up": action = "پیگیری"
-            elif cat_key == "inquiry": action = "بررسی"
-            
-            vals = [idx, e.get("date",""), e.get("from","")[:50], e.get("subject","")[:70],
-                    app_label, e.get("employer",""), action]
-            
-            for ci, v in enumerate(vals):
-                wc(ws_cat, row, ci + 1, v, font=fa(sz=9))
-            row += 1
-        
-        widths = [5, 18, 40, 55, 10, 20, 16]
-        for i, w in enumerate(widths): auto_width(ws_cat, i + 1, w)
-        freeze(ws_cat, "A4")
-    
-    # ═══════════════════════════════════════
-    # Sheet: By Applicant
-    # ═══════════════════════════════════════
-    for app_key, app_label, app_color in [("TOHID", "توحید — IT", C_MED), ("NEDA", "ندا — مامایی", C_PURPLE)]:
-        app_emails = by_applicant.get(app_key, [])
-        if not app_emails:
-            continue
-        
-        ws_app = wb.create_sheet(app_label)
-        rtl(ws_app)
-        
-        wc(ws_app, 1, 1, f"{app_label} — {len(app_emails)} ایمیل", 
-           font=fa(sz=14, bold=True, color=app_color))
-        ws_app.merge_cells("A1:G1")
-        
-        # Mini dashboard for this applicant
-        app_cats = {}
-        for e in app_emails:
-            cat = e.get("category", "unknown")
-            app_cats[cat] = app_cats.get(cat, 0) + 1
-        
-        row = 3
-        wc(ws_app, row, 1, "دسته", font=fa(sz=9, bold=True, color=C_WHITE), bg=app_color, align=center())
-        wc(ws_app, row, 2, "تعداد", font=fa(sz=9, bold=True, color=C_WHITE), bg=app_color, align=center())
-        wc(ws_app, row, 3, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=app_color, align=center())
-        row += 1
-        
-        for cat_key in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
-            count = app_cats.get(cat_key, 0)
-            pct = round(count / len(app_emails) * 100) if app_emails else 0
-            info = CATEGORIES.get(cat_key, CATEGORIES["unknown"])
-            wc(ws_app, row, 1, info["label"], font=fa(sz=9), bg=info["bg"], align=center())
-            wc(ws_app, row, 2, count, font=fa(sz=10, bold=True), align=center())
-            wc(ws_app, row, 3, f"{pct}%", font=fa(sz=10, bold=True, color=info["color"]), align=center())
-            row += 1
-        
-        row += 1
-        app_headers = ["#", "تاریخ", "از", "موضوع", "دسته", "کارفرما", "اقدام"]
-        header_row(ws_app, row, len(app_headers), bg=app_color)
-        for i, h in enumerate(app_headers):
-            ws_app.cell(row=row, column=i+1).value = h
-        row += 1
-        
-        for idx, e in enumerate(sorted(app_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
-            cat = e.get("category", "unknown")
-            info = CATEGORIES.get(cat, CATEGORIES["unknown"])
-            vals = [idx, e.get("date",""), e.get("from","")[:50], e.get("subject","")[:70],
-                    info["label"], e.get("employer",""), ""]
-            for ci, v in enumerate(vals):
-                bg = info["bg"] if ci == 4 else None
-                wc(ws_app, row, ci + 1, v, font=fa(sz=9), bg=bg)
-            row += 1
-        
-        widths = [5, 18, 40, 55, 16, 20, 16]
-        for i, w in enumerate(widths): auto_width(ws_app, i + 1, w)
-        freeze(ws_app, "A4")
-    
-    return wb
 
+    aw(ws, 1, 35)
+    aw(ws, 2, 10)
+    aw(ws, 3, 10)
+    aw(ws, 4, 10)
+    freeze(ws)
+
+# ─── اجرا ───
 def main():
-    print("=" * 60)
-    print("MigrationHunter — Email Analysis Excel")
-    print("=" * 60)
-    
-    data = load_email_data()
+    print("=" * 50)
+    print("MigrationHunter — Email Excel (بازسازی شده)")
+    print("=" * 50)
+
+    data = load_data()
     if not data:
         return
-    
-    print(f"\n📂 داده: {data.get('job_related', 0)} ایمیل شغلی از {data.get('total_emails', 0)} کل")
-    
+
+    job_rel = data.get("job_related", 0)
+    print(f"\n📂 {job_rel} ایمیل شغلی")
+
     print("\n📊 ساخت Excel...")
-    wb = build_email_excel(data)
-    
+    wb = Workbook()
+    wb.remove(wb.active)
+
+    print("  📝 داشبورد...")
+    sheet_dashboard(wb, data)
+
+    print("  📝 ایمیل‌های شغلی...")
+    sheet_all_emails(wb, data)
+
+    print("  📝 بر اساس متقاضی...")
+    sheet_by_applicant(wb, data)
+
+    print("  📝 بر اساس دسته...")
+    sheet_by_category(wb, data)
+
+    print("  📝 آمار...")
+    sheet_stats(wb, data)
+
     os.makedirs(DASH, exist_ok=True)
-    filename = f"Email_Analysis_{FILE_DATE}.xlsx"
-    filepath = os.path.join(DASH, filename)
-    wb.save(filepath)
-    
-    print(f"  ✅ ذخیره شد: {filename}")
-    print(f"  📋 شیت‌ها: {len(wb.sheetnames)}")
+    fn = f"Email_Analysis_{FILE_DATE}.xlsx"
+    fp = os.path.join(DASH, fn)
+    wb.save(fp)
+
+    print(f"\n✅ ذخیره شد: {fn}")
+    print(f"📋 شیت‌ها: {len(wb.sheetnames)}")
     for s in wb.sheetnames:
-        print(f"    - {s}")
-    
-    print(f"\n{'=' * 60}")
-    print(f"📊 خلاصه")
-    print(f"{'=' * 60}")
-    print(f"  📧 ایمیل شغلی: {data.get('job_related', 0)}")
-    print(f"  📋 شیت‌ها: {len(wb.sheetnames)}")
-    print(f"  📁 فایل: {filename}")
+        print(f"  - {s}")
 
 if __name__ == "__main__":
     main()
