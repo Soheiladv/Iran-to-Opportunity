@@ -49,6 +49,8 @@ def main():
     steps = [
         ("تحلیل ایمیل شغلی", "email_analyzer.py"),
         ("ساخت Excel ایمیل", "email_dashboard.py"),
+        ("جستجوی خودکار کار", "job_crawler.py"),
+        ("یادآوری پیگیری", "followup_reminder.py"),
         ("ساخت داشبورد اصلی", "build_dashboard.py"),
     ]
     
