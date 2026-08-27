@@ -6,9 +6,7 @@
 # ---- اطلاعات شخصی (فایل‌های واقعی) ----
 profiles/CV_NEDA.md
 profiles/CV_TOHID.md
-memory/APPLICATION_BANK.md
 output/EMAILS_TO_SEND.md
-output/email_*.txt
 
 # ---- تنظیمات محلی و API Keys ----
 .env
