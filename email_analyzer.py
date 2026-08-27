@@ -30,6 +30,10 @@ from collections import defaultdict
 BASE = os.path.dirname(os.path.abspath(__file__))
 MEM = os.path.join(BASE, "memory")
 OUT = os.path.join(BASE, "output")
+NOW = datetime.now()
+DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
+MEM = os.path.join(BASE, "memory")
+OUT = os.path.join(BASE, "output")
 
 # ═══════════════════════════════════════════════════
 # EMAIL PROVIDER CONFIGS
@@ -684,137 +688,295 @@ def save_to_memory(results, email_addr):
 # ═══════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════
+def load_accounts():
+    """Load email accounts from email_accounts.json"""
+    accounts_file = os.path.join(BASE, "email_accounts.json")
+    if not os.path.exists(accounts_file):
+        return []
+    with open(accounts_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return [a for a in data.get("accounts", []) if a.get("active", True)]
+
+def load_env_passwords():
+    """Load passwords from .env"""
+    passwords = {}
+    env_file = os.path.join(BASE, ".env")
+    if not os.path.exists(env_file):
+        return passwords
+    with open(env_file) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith("EMAIL_PASSWORD_"):
+                key = line.split("=", 1)[0].strip()
+                val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                passwords[key] = val
+    return passwords
+
+def analyze_single_account(account, passwords, days=30, limit=200):
+    """Analyze emails for a single account"""
+    acc_id = account["id"].upper()
+    email = account["email"]
+    provider = account.get("provider", "gmail")
+    linkedin = account.get("linkedin", "")
+    person = account.get("person", "UNKNOWN")
+    person_fa = account.get("person_fa", "?")
+    
+    # Find password
+    pw_key = f"EMAIL_PASSWORD_{acc_id}"
+    password = passwords.get(pw_key, "")
+    
+    if not password or password.startswith("اینجا"):
+        print(f"  ⚠️ رمز {email} تنظیم نشده — رد شد")
+        return None
+    
+    print(f"\n{'='*50}")
+    print(f"📧 {person_fa} — {email}")
+    print(f"🔗 LinkedIn: {linkedin}")
+    print(f"{'='*50}")
+    
+    # Connect
+    connector = EmailConnector(email, password, provider)
+    try:
+        connector.connect()
+    except imaplib.IMAP4.error as e:
+        print(f"  ❌ خطا: {e}")
+        return None
+    
+    # Search
+    emails = connector.search_emails(days=days, limit=limit)
+    print(f"  📩 {len(emails)} ایمیل یافت شد")
+    connector.disconnect()
+    
+    if not emails:
+        return None
+    
+    # Analyze
+    analyzer = EmailAnalyzer()
+    results = analyzer.analyze_all(emails)
+    
+    # Force applicant detection based on account
+    for r in results:
+        r["applicant"] = person
+        r["account_id"] = account["id"]
+        r["linkedin"] = linkedin
+    
+    job_related = [r for r in results if r.get("is_job_related")]
+    print(f"  ✅ {len(job_related)} ایمیل شغلی")
+    
+    return {
+        "account": account,
+        "total": len(emails),
+        "job_related": len(job_related),
+        "results": results,
+        "job_results": job_related,
+    }
+
 def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="MigrationHunter Email Analyzer")
-    parser.add_argument("--email", help="Email address")
-    parser.add_argument("--password", help="App Password (NOT regular password)")
-    parser.add_argument("--provider", default="gmail", 
-                       choices=["gmail", "outlook", "yahoo", "icloud"],
-                       help="Email provider")
-    parser.add_argument("--folder", default="INBOX", help="Email folder")
-    parser.add_argument("--days", type=int, default=30, help="Days to look back")
-    parser.add_argument("--limit", type=int, default=200, help="Max emails to fetch")
-    parser.add_argument("--dry-run", action="store_true", help="Test connection only")
+    parser.add_argument("--email", help="Single email (overrides email_accounts.json)")
+    parser.add_argument("--password", help="App Password")
+    parser.add_argument("--provider", default="gmail")
+    parser.add_argument("--account", help="Analyze specific account ID only")
+    parser.add_argument("--folder", default="INBOX")
+    parser.add_argument("--days", type=int, default=30)
+    parser.add_argument("--limit", type=int, default=200)
+    parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     
-    # Load from .env if not provided
-    if not args.email:
-        env_file = os.path.join(BASE, ".env")
-        if os.path.exists(env_file):
-            with open(env_file) as f:
-                for line in f:
-                    line = line.strip()
-                    if line.startswith("EMAIL_ADDRESS="):
-                        args.email = line.split("=", 1)[1].strip().strip('"').strip("'")
-                    elif line.startswith("EMAIL_PASSWORD="):
-                        args.password = line.split("=", 1)[1].strip().strip('"').strip("'")
-                    elif line.startswith("EMAIL_PROVIDER="):
-                        args.provider = line.split("=", 1)[1].strip().strip('"').strip("'")
-    
-    if not args.email or not args.password:
-        print("❌ لطفاً ایمیل و رمز عبور را وارد کنید:")
-        print()
-        print("روش ۱:")
-        print("  python email_analyzer.py --email you@gmail.com --password APP_PASSWORD")
-        print()
-        print("روش ۲:")
-        print("  فایل .env بسازید با:")
-        print("  EMAIL_ADDRESS=you@gmail.com")
-        print("  EMAIL_PASSWORD=your_app_password")
-        print("  EMAIL_PROVIDER=gmail")
-        print()
-        print("Gmail App Password:")
-        print("  1. myaccount.google.com → Security → 2-Step Verification → ON")
-        print("  2. myaccount.google.com → Security → App passwords → Create")
-        print("  3. کد 16 رقمی را به عنوان password استفاده کنید")
-        sys.exit(1)
+    passwords = load_env_passwords()
+    accounts = load_accounts()
     
     print("=" * 60)
-    print("MigrationHunter — Email Analyzer")
-    print(f"📧 {args.email}")
-    print(f"🔌 Provider: {args.provider}")
-    print(f"📅 Days: {args.days}")
+    print("MigrationHunter — Email Analyzer (Multi-Account)")
+    print(f"📅 {DATE_STR}")
+    print(f"📋 حساب‌ها: {len(accounts)}")
     print("=" * 60)
     
-    # Connect
-    connector = EmailConnector(args.email, args.password, args.provider)
-    try:
-        connector.connect()
-    except imaplib.IMAP4.error as e:
-        print(f"\n❌ خطا در اتصال: {e}")
-        print("\npossible causes:")
-        print("  - App Password اشتباه")
-        print("  - IMAP فعال نیست")
-        print("  - 2FA فعال نیست (Gmail)")
+    # Single email mode
+    if args.email and args.password:
+        accounts = [{
+            "id": "single",
+            "person": "UNKNOWN",
+            "email": args.email,
+            "provider": args.provider,
+            "linkedin": "",
+        }]
+        passwords["EMAIL_PASSWORD_SINGLE"] = args.password
+    
+    if not accounts:
+        print("\n❌ حساب ایمیلی یافت نشد")
+        print("   فایل email_accounts.json یا .env را تنظیم کنید")
         sys.exit(1)
     
-    if args.dry_run:
-        print("\n✅ اتصال موفق! (dry-run mode)")
-        folders = connector.get_folders()
-        print(f"\n📁 پوشه‌ها:")
-        for f in folders[:20]:
-            print(f"  - {f}")
-        connector.disconnect()
+    # Filter by account ID if specified
+    if args.account:
+        accounts = [a for a in accounts if a["id"] == args.account]
+    
+    # Process each account
+    all_results = []
+    for account in accounts:
+        if args.dry_run:
+            email = account["email"]
+            password = passwords.get(f"EMAIL_PASSWORD_{account['id'].upper()}", "")
+            if not password or password.startswith("اینجا"):
+                print(f"\n⚠️ {email}: رمز تنظیم نشده")
+                continue
+            connector = EmailConnector(email, password, account.get("provider", "gmail"))
+            try:
+                connector.connect()
+                print(f"✅ {email}: اتصال موفق")
+                connector.disconnect()
+            except Exception as e:
+                print(f"❌ {email}: {e}")
+            continue
+        
+        result = analyze_single_account(account, passwords, args.days, args.limit)
+        if result:
+            all_results.append(result)
+    
+    if args.dry_run or not all_results:
         return
     
-    # Search emails
-    print(f"\n🔍 جستجوی ایمیل‌های {args.days} روز اخیر...")
-    emails = connector.search_emails(
-        folder=args.folder,
-        days=args.days,
-        limit=args.limit,
-    )
-    print(f"  📩 {len(emails)} ایمیل یافت شد")
+    # Merge all results
+    all_job_results = []
+    for r in all_results:
+        all_job_results.extend(r["job_results"])
     
-    connector.disconnect()
+    # Generate combined report
+    print("\n📊 تولید گزارش ترکیبی...")
     
-    if not emails:
-        print("\n⚠️ ایمیلی یافت نشد")
-        return
+    # Per-account reports
+    for r in all_results:
+        acc = r["account"]
+        email = acc["email"]
+        report = generate_report(r["results"], email)
+        report_path = os.path.join(OUT, f"EMAIL_REPORT_{acc['id'].upper()}.md")
+        with open(report_path, "w", encoding="utf-8") as f:
+            f.write(report)
+        print(f"  📄 {report_path}")
     
-    # Analyze
-    print("\n🔬 تحلیل ایمیل‌ها...")
-    analyzer = EmailAnalyzer()
-    results = analyzer.analyze_all(emails)
+    # Combined report
+    combined_report = generate_combined_report(all_results)
+    combined_path = os.path.join(OUT, "EMAIL_ANALYSIS_REPORT.md")
+    with open(combined_path, "w", encoding="utf-8") as f:
+        f.write(combined_report)
+    print(f"  📄 {combined_path}")
     
-    job_related = [r for r in results if r.get("is_job_related")]
-    print(f"  ✅ {len(job_related)} ایمیل شغلی شناسایی شد")
-    
-    # Generate report
-    print("\n📊 تولید گزارش...")
-    report = generate_report(results, args.email)
-    
-    os.makedirs(OUT, exist_ok=True)
-    report_path = os.path.join(OUT, "EMAIL_ANALYSIS_REPORT.md")
-    with open(report_path, "w", encoding="utf-8") as f:
-        f.write(report)
-    print(f"  📄 {report_path}")
-    
-    # Save to memory
+    # Save combined to memory
     print("\n💾 ذخیره در حافظه...")
-    save_to_memory(results, args.email)
+    all_emails_for_memory = []
+    for r in all_results:
+        all_emails_for_memory.extend(r["job_results"])
     
-    # Summary
+    combined_data = {
+        "analyzed_at": DATE_STR,
+        "accounts": len(all_results),
+        "total_emails": sum(r["total"] for r in all_results),
+        "job_related": len(all_job_results),
+        "per_account": [
+            {
+                "email": r["account"]["email"],
+                "person": r["account"]["person"],
+                "linkedin": r["account"].get("linkedin", ""),
+                "total": r["total"],
+                "job_related": r["job_related"],
+            }
+            for r in all_results
+        ],
+        "emails": [{
+            "date": e.get("date", ""),
+            "from": e.get("from", ""),
+            "subject": e.get("subject", ""),
+            "category": e.get("category", ""),
+            "applicant": e.get("applicant", ""),
+            "account_id": e.get("account_id", ""),
+            "linkedin": e.get("linkedin", ""),
+            "employer": e.get("employer_match", {}).get("name", "") if e.get("employer_match") else "",
+            "urgency": e.get("urgency", ""),
+        }
+        for e in all_job_results
+        ],
+    }
+    
+    memory_path = os.path.join(MEM, "EMAIL_ANALYSIS.json")
+    with open(memory_path, "w", encoding="utf-8") as f:
+        json.dump(combined_data, f, ensure_ascii=False, indent=2)
+    print(f"  💾 {memory_path}")
+    
+    # Final summary
     print("\n" + "=" * 60)
-    print("📊 خلاصه")
+    print("📊 خلاصه نهایی")
     print("=" * 60)
     
-    categories = defaultdict(int)
-    for r in job_related:
-        categories[r.get("category", "unknown")] += 1
+    for r in all_results:
+        acc = r["account"]
+        person = acc.get("person_fa", "?")
+        linkedin = acc.get("linkedin", "")
+        categories = defaultdict(int)
+        for e in r["job_results"]:
+            categories[e.get("category", "unknown")] += 1
+        
+        print(f"\n  👤 {person} — {acc['email']}")
+        print(f"  🔗 {linkedin}")
+        print(f"  📩 {r['job_related']} ایمیل شغلی از {r['total']}")
+        for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
+            emoji = {"offer": "🎉", "rejection": "❌", "interview": "🗣️",
+                     "follow_up": "⏰", "inquiry": "💬"}.get(cat, "❓")
+            print(f"    {emoji} {cat}: {count}")
     
-    emoji_map = {"offer": "🎉", "rejection": "❌", "interview": "🗣️",
-                 "follow_up": "⏰", "acknowledgment": "📩", "inquiry": "💬"}
-    
-    for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
-        emoji = emoji_map.get(cat, "❓")
-        print(f"  {emoji} {cat}: {count}")
-    
-    print(f"\n  📄 گزارش: output/EMAIL_ANALYSIS_REPORT.md")
+    print(f"\n  📄 گزارش ترکیبی: output/EMAIL_ANALYSIS_REPORT.md")
     print(f"  💾 حافظه: memory/EMAIL_ANALYSIS.json")
     print("=" * 60)
+
+def generate_combined_report(all_results):
+    """Generate combined report for all accounts"""
+    lines = []
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    
+    lines.append(f"# گزارش تحلیل ایمیل شغلی — تمام حساب‌ها")
+    lines.append(f"")
+    lines.append(f"**تاریخ:** {now}")
+    lines.append(f"**تعداد حساب‌ها:** {len(all_results)}")
+    total = sum(r["total"] for r in all_results)
+    job_total = sum(r["job_related"] for r in all_results)
+    lines.append(f"**کل ایمیل‌ها:** {total}")
+    lines.append(f"**ایمیل شغلی:** {job_total}")
+    lines.append(f"")
+    lines.append(f"---")
+    
+    for r in all_results:
+        acc = r["account"]
+        person = acc.get("person_fa", "?")
+        email = acc["email"]
+        linkedin = acc.get("linkedin", "")
+        
+        lines.append(f"")
+        lines.append(f"## {person} — {email}")
+        lines.append(f"")
+        lines.append(f"**LinkedIn:** {linkedin}")
+        lines.append(f"**ایمیل شغلی:** {r['job_related']} از {r['total']}")
+        lines.append(f"")
+        
+        categories = defaultdict(int)
+        for e in r["job_results"]:
+            categories[e.get("category", "unknown")] += 1
+        
+        lines.append(f"| دسته | تعداد | درصد |")
+        lines.append(f"|------|-------|------|")
+        for cat in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+            count = categories.get(cat, 0)
+            pct = round(count / r["job_related"] * 100) if r["job_related"] else 0
+            emoji = {"offer": "🎉", "rejection": "❌", "interview": "🗣️",
+                     "follow_up": "⏰", "inquiry": "💬"}.get(cat, "❓")
+            lines.append(f"| {emoji} {cat} | {count} | {pct}% |")
+        lines.append(f"")
+    
+    lines.append(f"---")
+    lines.append(f"> **آخرین بروزرسانی:** {now}")
+    
+    return "\n".join(lines)
 
 if __name__ == "__main__":
     main()

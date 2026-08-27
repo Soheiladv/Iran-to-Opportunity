@@ -102,6 +102,7 @@ def build_email_excel(data):
     emails = data.get("emails", [])
     total = data.get("total_emails", 0)
     job_related = data.get("job_related", 0)
+    per_account = data.get("per_account", [])
     
     # Categorize
     by_category = {}
@@ -211,6 +212,29 @@ def build_email_excel(data):
         wc(ws, row, 3, f"{pct}%", font=fa(sz=10, color=C_MED), align=center())
         row += 1
     
+    # Per-account breakdown
+    if per_account:
+        row += 1
+        wc(ws, row, 1, "بر اساس حساب ایمیل", font=fa(sz=12, bold=True, color=C_DARK))
+        ws.merge_cells(f"A{row}:H{row}")
+        row += 1
+        wc(ws, row, 1, "حساب", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+        wc(ws, row, 2, "شخص", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+        wc(ws, row, 3, "LinkedIn", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+        wc(ws, row, 4, "ایمیل شغلی", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+        wc(ws, row, 5, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+        row += 1
+        for pa in per_account:
+            pct = round(pa.get("job_related", 0) / job_related * 100) if job_related else 0
+            wc(ws, row, 1, pa.get("email", ""), font=en(sz=9))
+            person = pa.get("person", "?")
+            app_label = "👩 ندا" if person == "NEDA" else "👨 توحید" if person == "TOHID" else person
+            wc(ws, row, 2, app_label, font=fa(sz=9), align=center())
+            wc(ws, row, 3, pa.get("linkedin", ""), font=en(sz=8, color="0563C1"))
+            wc(ws, row, 4, pa.get("job_related", 0), font=fa(sz=10, bold=True), align=center())
+            wc(ws, row, 5, f"{pct}%", font=fa(sz=10, bold=True, color=C_MED), align=center())
+            row += 1
+    
     # Widths
     for i, w in enumerate([30, 10, 10, 40, 10, 10, 10, 10]):
         auto_width(ws, i + 1, w)
@@ -225,7 +249,7 @@ def build_email_excel(data):
     wc(ws2, 1, 1, f"تمام ایمیل‌های شغلی — {job_related} ایمیل", font=fa(sz=14, bold=True, color=C_DARK))
     ws2.merge_cells("A1:G1")
     
-    headers = ["#", "تاریخ", "از", "موضوع", "دسته", "متقاضی", "کارفرما"]
+    headers = ["#", "تاریخ", "از", "موضوع", "دسته", "متقاضی", "کارفرما", "حساب"]
     header_row(ws2, 3, len(headers))
     for i, h in enumerate(headers):
         ws2.cell(row=3, column=i+1).value = h
@@ -238,17 +262,17 @@ def build_email_excel(data):
         app_label = "👩 ندا" if applicant == "NEDA" else "👨 توحید" if applicant == "TOHID" else "❓"
         
         vals = [idx, e.get("date",""), e.get("from","")[:50], e.get("subject","")[:70],
-                info["label"], app_label, e.get("employer","")]
+                info["label"], app_label, e.get("employer",""), e.get("account_id","")]
         
         for ci, v in enumerate(vals):
             bg = info["bg"] if ci == 4 else None
             wc(ws2, row, ci + 1, v, font=fa(sz=9), bg=bg)
         row += 1
     
-    widths = [5, 18, 40, 55, 16, 10, 20]
+    widths = [5, 18, 40, 55, 16, 10, 20, 12]
     for i, w in enumerate(widths): auto_width(ws2, i + 1, w)
     freeze(ws2, "A4")
-    ws2.auto_filter.ref = f"A3:G{row-1}"
+    ws2.auto_filter.ref = f"A3:H{row-1}"
     
     # ═══════════════════════════════════════
     # Sheets by category
