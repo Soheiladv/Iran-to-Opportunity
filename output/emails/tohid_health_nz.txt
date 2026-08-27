@@ -1,0 +1,33 @@
+To: international.recruitment@health.govt.nz
+Subject: IT Operations Manager — International Candidate — Health NZ
+============================================================
+
+Dear Health New Zealand International Recruitment Team,
+
+My name is Tohid Arjmand. I am an IT operations professional with 19 years of experience managing infrastructure across multi-site environments, including healthcare settings.
+
+I am writing to express my interest in IT operations or infrastructure management roles within Health New Zealand.
+
+My background includes:
+
+— Windows Server administration and Active Directory management
+— VMware, Hyper-V, and Proxmox virtualization
+— Network infrastructure (Cisco, MikroTik, Ubiquiti/UniFi)
+— Backup and disaster recovery (Veeam)
+— IT service management and team leadership (up to 8 staff)
+— Hospital IT systems including EMR infrastructure and clinical network management
+— Multi-site IT operations across hospitality and healthcare environments
+
+I have managed IT infrastructure for organisations with 500+ endpoints and I understand the critical nature of high-availability systems in healthcare.
+
+I am currently at English A2 and am committed to reaching the level required for professional integration in New Zealand.
+
+I would welcome the opportunity to discuss how my skills might match your current or upcoming IT requirements.
+
+My CV is attached for your review.
+
+Best regards,
+Tohid Arjmand
+IT Operations Manager — 19 Years Experience
+Email: [YOUR_EMAIL]
+Phone: [YOUR_PHONE]

@@ -1,6 +1,6 @@
 # فرصت‌های برتر — NEDA
 
-تاریخ: 2026-08-19 21:57
+تاریخ: 2026-08-22 21:28
 
 ---
 
@@ -10,4 +10,3 @@
 | 2 | Holalemania GmbH | de | Hebamme (Midwife) | 82/100 | NEW |
 | 3 | RGH Global | nz | Midwife (with sponsorship) | 79/100 | NEW |
 | 4 | Working In Health NZ | nz | Midwife (full recruitment service) | 79/100 | NEW |
-| 5 | Health New Zealand | nz | Working at Health NZ | 66/100 | NEW |
