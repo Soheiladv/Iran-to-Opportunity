@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Migration Hunter — اجرای کامل تمام آپدیت‌ها
