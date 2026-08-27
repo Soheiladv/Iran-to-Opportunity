@@ -934,6 +934,125 @@ def archive_old():
 # ═══════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════
+def build_sheet_13_email_analysis(wb, data):
+    """تحلیل ایمیل شغلی با آمار درصدی"""
+    ws = wb.create_sheet("13 تحلیل ایمیل")
+    rtl(ws)
+    
+    # Load email analysis
+    import json
+    email_file = os.path.join(MEM, "EMAIL_ANALYSIS.json")
+    if not os.path.exists(email_file):
+        wc(ws, 1, 1, "تحلیل ایمیل — داده‌ای موجود نیست", font=fa(sz=14, bold=True, color=C_GRAY))
+        return
+    
+    with open(email_file, "r", encoding="utf-8") as f:
+        email_data = json.load(f)
+    
+    emails = email_data.get("emails", [])
+    total = email_data.get("total_emails", 0)
+    job_related = email_data.get("job_related", 0)
+    
+    # Title
+    wc(ws, 1, 1, f"تحلیل ایمیل شغلی — {job_related} ایمیل از {total} کل", font=fa(sz=14, bold=True, color=C_DARK))
+    ws.merge_cells("A1:H1")
+    
+    # KPI
+    wc(ws, 3, 1, "کل", font=fa(sz=8, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, 3, 2, total, font=fa(sz=14, bold=True), align=center())
+    pct = round(job_related / total * 100) if total else 0
+    wc(ws, 3, 3, "مرتبط با کار", font=fa(sz=8, bold=True, color=C_WHITE), bg=C_GREEN, align=center())
+    wc(ws, 3, 4, f"{job_related} ({pct}%)", font=fa(sz=14, bold=True, color=C_GREEN), align=center())
+    
+    # Category breakdown
+    by_cat = {}
+    for e in emails:
+        cat = e.get("category", "unknown")
+        by_cat[cat] = by_cat.get(cat, 0) + 1
+    
+    row = 5
+    wc(ws, row, 1, "دسته", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 2, "تعداد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 3, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    row += 1
+    
+    cat_info = {
+        "interview": ("🗣️ مصاحبه", C_GREEN, C_LGREEN),
+        "offer": ("🎉 پیشنهاد", C_PURPLE, C_LPURPLE),
+        "rejection": ("❌ رد شده", C_RED, C_LRED),
+        "follow_up": ("⏰ پیگیری", C_YELLOW, C_LYELLOW),
+        "inquiry": ("💬 استعلام", C_MED, C_LIGHT),
+    }
+    
+    for cat_key in ["interview", "offer", "rejection", "follow_up", "inquiry"]:
+        label, color, bg = cat_info.get(cat_key, (cat_key, C_GRAY, C_LGRAY))
+        count = by_cat.get(cat_key, 0)
+        p = round(count / job_related * 100) if job_related else 0
+        wc(ws, row, 1, label, font=fa(sz=9, bold=True), bg=bg, align=center())
+        wc(ws, row, 2, count, font=fa(sz=10, bold=True), align=center())
+        wc(ws, row, 3, f"{p}%", font=fa(sz=10, bold=True, color=color), align=center())
+        row += 1
+    
+    # By applicant
+    row += 1
+    wc(ws, row, 1, "متقاضی", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 2, "تعداد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 3, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    row += 1
+    
+    by_app = {"TOHID": 0, "NEDA": 0}
+    for e in emails:
+        app = e.get("applicant", "UNKNOWN")
+        if app in by_app: by_app[app] += 1
+    
+    for app_key, app_label in [("TOHID", "👨 توحید"), ("NEDA", "👩 ندا")]:
+        count = by_app.get(app_key, 0)
+        p = round(count / job_related * 100) if job_related else 0
+        wc(ws, row, 1, app_label, font=fa(sz=9, bold=True), align=center())
+        wc(ws, row, 2, count, font=fa(sz=10, bold=True), align=center())
+        wc(ws, row, 3, f"{p}%", font=fa(sz=10, bold=True, color=C_MED), align=center())
+        row += 1
+    
+    # Top senders
+    row += 1
+    wc(ws, row, 1, "فرستنده‌ها", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 2, "تعداد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    wc(ws, row, 3, "درصد", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    row += 1
+    
+    senders = {}
+    for e in emails:
+        sender = e.get("from", "").split("<")[0].strip().strip('"')[:40]
+        if sender: senders[sender] = senders.get(sender, 0) + 1
+    
+    for sender, count in sorted(senders.items(), key=lambda x: -x[1])[:8]:
+        p = round(count / job_related * 100) if job_related else 0
+        wc(ws, row, 1, sender, font=fa(sz=8))
+        wc(ws, row, 2, count, font=fa(sz=9, bold=True), align=center())
+        wc(ws, row, 3, f"{p}%", font=fa(sz=9, color=C_MED), align=center())
+        row += 1
+    
+    # Recent emails (last 10)
+    row += 1
+    wc(ws, row, 1, "آخرین ایمیل‌ها", font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+    ws.merge_cells(f"A{row}:E{row}")
+    row += 1
+    
+    for e in sorted(emails, key=lambda x: x.get("date", ""), reverse=True)[:10]:
+        cat = e.get("category", "unknown")
+        label, color, bg = cat_info.get(cat, (cat_key, C_GRAY, C_LGRAY))
+        wc(ws, row, 1, e.get("date", "")[:10], font=fa(sz=8), align=center())
+        wc(ws, row, 2, e.get("from", "")[:35], font=fa(sz=8))
+        wc(ws, row, 3, e.get("subject", "")[:50], font=fa(sz=8))
+        wc(ws, row, 4, label, font=fa(sz=8, bold=True), bg=bg, align=center())
+        row += 1
+    
+    # Widths
+    for i, w in enumerate([16, 35, 50, 14, 10, 10, 10, 10]):
+        auto_width(ws, i + 1, w)
+    freeze(ws, "A2")
+
+
 def main():
     print("=" * 60)
     print("MigrationHunter — Build Dashboard")
@@ -1002,6 +1121,9 @@ def main():
     print("  📝 Sheet 12: تاریخچه...")
     build_sheet_12_history(wb, data)
     
+    print("  📝 Sheet 13: تحلیل ایمیل...")
+    build_sheet_13_email_analysis(wb, data)
+    
     # Step 5: Save
     os.makedirs(DASH, exist_ok=True)
     filename = f"MigrationHunter_Dashboard_{FILE_DATE}.xlsx"
@@ -1014,7 +1136,7 @@ def main():
     print("📊 خلاصه")
     print("=" * 60)
     print(f"  فایل: {filename}")
-    print(f"  شیت‌ها: 12")
+    print(f"  شیت‌ها: 13")
     print(f"  فرصت‌ها: {len(opps)}")
     print(f"  ندا: {sum(1 for o in opps if 'NEDA' in str(o.get('applicant','')).upper() or 'ندا' in str(o.get('applicant','')))}")
     print(f"  توحید: {sum(1 for o in opps if 'TOHID' in str(o.get('applicant','')).upper() or 'توحید' in str(o.get('applicant','')))}")
