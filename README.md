@@ -15,6 +15,17 @@
 
 ---
 
+## 🔗 لینک‌های سریع
+
+| لینک | کاربرد |
+|------|--------|
+| **https://myaccount.google.com/apppasswords** | **ساخت رمز عبور برنامه (App Password) گوگل** |
+| https://myaccount.google.com/security | فعال‌سازی تأیید دو مرحله‌ای (2FA) |
+| https://mail.google.com/mail/u/0/#settings/fwdandpop | فعال‌سازی IMAP در Gmail |
+| https://github.com/Soheiladv/Iran-to-Opportunity | مخزن پروژه در GitHub |
+
+---
+
 ## 📖 درباره پروژه
 
 **Iran-to-Opportunity** یک سیستم هوشمند شکار فرصت شغلی بین‌المللی است که:

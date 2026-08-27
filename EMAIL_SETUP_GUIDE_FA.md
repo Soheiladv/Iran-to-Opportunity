@@ -1,5 +1,15 @@
 # راهنمای کامل اتصال ایمیل — MigrationHunter
 
+## لینک‌های مهم (سریع)
+
+| لینک | کاربرد |
+|------|--------|
+| **https://myaccount.google.com/apppasswords** | **ساخت App Password گوگل** |
+| https://myaccount.google.com/security | فعال کردن 2-Step Verification |
+| https://mail.google.com/mail/u/0/#settings/fwdandpop | فعال کردن IMAP |
+
+---
+
 ## هدف
 
 اتصال ایمیل شغلی به ابزار تحلیل ایمیل پروژه MigrationHunter
