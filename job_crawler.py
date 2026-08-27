@@ -10,6 +10,7 @@ from datetime import datetime
 from urllib.request import urlopen, Request
 from urllib.error import URLError
 from html.parser import HTMLParser
+from config_loader import get_applicant_label, get_applicants
 
 # Fix Windows console encoding for emoji support
 if sys.platform == 'win32':
@@ -117,10 +118,14 @@ SEARCH_SOURCES = [
 # خواندن اطلاعات متقاضیان
 # ═══════════════════════════════════════════════════
 def load_applicants():
-    applicants = {
-        "NEDA": {"profession": "Midwife", "keywords": ["midwife", "maternity", "obstetric", "neonatal"]},
-        "TOHID": {"profession": "IT Manager", "keywords": ["it manager", "infrastructure", "systems", "network", "devops"]},
-    }
+    """بارگذاری متقاضیان از config.json — داینامیک"""
+    applicants = {}
+    for a in get_applicants():
+        app_id = a["id"].upper()
+        applicants[app_id] = {
+            "profession": a.get("profession", ""),
+            "keywords": a.get("keywords", []),
+        }
     return applicants
 
 # ═══════════════════════════════════════════════════
@@ -243,7 +248,7 @@ def build_crawler_excel(jobs):
     row = 4
     for idx, job in enumerate(sorted(jobs, key=lambda x: x.get("found_at", ""), reverse=True), 1):
         applicant = match_applicant(job, applicants)
-        app_label = "👩 ندا" if applicant == "NEDA" else "👨 توحید" if applicant == "TOHID" else "❓"
+        app_label = get_applicant_label(applicant.lower()) if applicant != "UNKNOWN" else "?"
         
         vals = [idx, job.get("title", ""), job.get("country", ""),
                 job.get("source", ""), app_label, job.get("url", ""), job.get("found_at", "")]

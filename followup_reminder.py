@@ -7,6 +7,7 @@ MigrationHunter — یادآوری پیگیری ۷ روزه
 """
 import os, sys, json, io
 from datetime import datetime, timedelta
+from config_loader import get_applicant_label
 
 # Fix Windows console encoding for emoji support
 if sys.platform == 'win32':
@@ -124,7 +125,7 @@ def generate_report(followup_list, data):
         
         for idx, e in enumerate(followup_list, 1):
             app = e.get("applicant", "?")
-            app_label = "👩 ندا" if app == "NEDA" else "👨 توحید" if app == "TOHID" else "❓"
+            app_label = get_applicant_label(app) if app in ['NEDA', 'TOHID'] else "?"
             sender = e.get("from", "").split("<")[0].strip().strip('"')[:25]
             subject = e.get("subject", "")[:45]
             
@@ -182,7 +183,7 @@ def main():
     
     if followup_list:
         for e in followup_list[:10]:
-            app = "👩 ندا" if e.get("applicant") == "NEDA" else "👨 توحید" if e.get("applicant") == "TOHID" else "❓"
+            app = get_applicant_label(e.get("applicant", "").lower()) if e.get("applicant") in ['NEDA', 'TOHID'] else "?"
             sender = e.get("from", "").split("<")[0].strip().strip('"')[:30]
             print(f"  {e.get('priority', '')} {e.get('days_since', 0)} روز — {sender} — {app}")
     else:

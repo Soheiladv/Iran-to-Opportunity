@@ -38,8 +38,10 @@ MEM = os.path.join(BASE, "memory")
 OUT = os.path.join(BASE, "output")
 NOW = datetime.now()
 DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
-MEM = os.path.join(BASE, "memory")
-OUT = os.path.join(BASE, "output")
+
+from config_loader import (load_config, get_applicant_label,
+    get_applicant_name, get_all_applicant_labels,
+    detect_applicant_from_text)
 
 # ═══════════════════════════════════════════════════
 # EMAIL PROVIDER CONFIGS
@@ -469,21 +471,9 @@ class EmailAnalyzer:
         return None
     
     def detect_applicant(self, email_data):
-        """تشخیص اینکه ایمیل برای کدام متقاضی است"""
-        full_text = (email_data.get("subject", "") + " " + 
-                    email_data.get("body_preview", "")).lower()
-        
-        neda_keywords = ["midwife", "midwifery", "neda", "مامایی"]
-        tohid_keywords = ["it manager", "infrastructure", "systems", "tohid", "devops"]
-        
-        neda_score = sum(1 for k in neda_keywords if k in full_text)
-        tohid_score = sum(1 for k in tohid_keywords if k in full_text)
-        
-        if neda_score > tohid_score:
-            return "NEDA"
-        elif tohid_score > neda_score:
-            return "TOHID"
-        return "UNKNOWN"
+        """تشخیص اینکه ایمیل برای کدام متقاضی است — از config.json"""
+        full_text = email_data.get("subject", "") + " " + email_data.get("body_preview", "")
+        return detect_applicant_from_text(full_text)
     
     def extract_dates(self, email_data):
         """استخراج تاریخ‌های مهم از ایمیل"""
@@ -571,9 +561,12 @@ def generate_report(results, email_addr):
     follow_ups = sum(1 for r in results if r.get("category") == "follow_up")
     pending = sum(1 for r in results if r.get("category") in ["inquiry", "acknowledgment"])
     
-    # By applicant
-    neda_count = sum(1 for r in results if r.get("applicant") == "NEDA")
-    tohid_count = sum(1 for r in results if r.get("applicant") == "TOHID")
+    # By applicant — dynamic from config
+    config = load_config()
+    applicant_counts = {}
+    for a in config.get("applicants", []):
+        app_id = a["id"].upper()
+        applicant_counts[app_id] = sum(1 for r in results if r.get("applicant") == app_id)
     
     # By employer
     by_employer = defaultdict(int)
@@ -608,8 +601,11 @@ def generate_report(results, email_addr):
     lines.append(f"")
     lines.append(f"| متقاضی | تعداد |")
     lines.append(f"|--------|-------|")
-    lines.append(f"| 👩 ندا | {neda_count} |")
-    lines.append(f"| 👨 توحید | {tohid_count} |")
+    # Dynamic applicant labels from config
+    config = load_config()
+    for a in config.get("applicants", []):
+        cnt = sum(1 for r in results if r.get("applicant") == a["id"].upper())
+        lines.append(f"| {a['emoji']} {a['name_fa']} | {cnt} |")
     lines.append(f"")
     
     if by_employer:
@@ -694,7 +690,7 @@ def generate_report(results, email_addr):
         }.get(r.get("category", ""), "❓")
         
         applicant = r.get("applicant", "?")
-        applicant_label = "👩 ندا" if applicant == "NEDA" else "👨 توحید" if applicant == "TOHID" else "?"
+        applicant_label = get_applicant_label(applicant.lower()) if applicant != "UNKNOWN" else "?"
         
         employer = r.get("employer_match", {})
         employer_name = employer.get("name", "") if employer else ""

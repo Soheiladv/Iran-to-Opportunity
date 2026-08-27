@@ -9,6 +9,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import PieChart, Reference
+from config_loader import get_applicant_label, get_all_applicant_labels
 
 # Fix Windows console encoding for emoji support
 if sys.platform == 'win32':
@@ -159,7 +160,7 @@ def sheet_dashboard(wb, data):
     for pa in per_acc:
         p = round(pa.get("job_related", 0) / job_rel * 100) if job_rel else 0
         person = pa.get("person", "?")
-        app = "👩 ندا" if person == "NEDA" else "👨 توحید" if person == "TOHID" else person
+        app = get_applicant_label(person) if person in ['NEDA', 'TOHID'] else person
         wc(ws, r, 1, pa.get("email", ""), font=en(sz=9))
         wc(ws, r, 2, app, font=fa(sz=9), align=ctr())
         wc(ws, r, 3, pa.get("linkedin", ""), font=en(sz=8, color="0563C1"))
@@ -196,8 +197,7 @@ def sheet_all_emails(wb, data):
     for idx, e in enumerate(sorted(job_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
         cat = e.get("category", "unknown")
         info = CAT.get(cat, CAT["unknown"])
-        app = e.get("applicant", "?")
-        app_label = "👩 ندا" if app == "NEDA" else "👨 توحید" if app == "TOHID" else "❓"
+        app = e.get("applicant", "?")            app_label = get_applicant_label(app) if app in ['NEDA', 'TOHID'] else "?"
         
         employer = e.get("employer", "")
         country = ""
@@ -366,7 +366,7 @@ def sheet_by_category(wb, data):
 
         for idx, e in enumerate(sorted(cat_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
             app = e.get("applicant", "?")
-            app_label = "👩 ندا" if app == "NEDA" else "👨 توحید" if app == "TOHID" else "❓"
+            app_label = get_applicant_label(app) if app in ['NEDA', 'TOHID'] else "?"
 
             vals = [
                 idx, e.get("date", "")[:10],

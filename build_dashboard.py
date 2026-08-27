@@ -12,6 +12,7 @@ from openpyxl.styles import (Font, Alignment, PatternFill, Border, Side,
                               numbers)
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, PieChart, Reference
+from config_loader import get_applicant_label, get_all_applicant_labels, get_applicants
 
 # Fix Windows console encoding for emoji support
 if sys.platform == 'win32':
@@ -357,7 +358,7 @@ COUNTRY_FLAGS = {
     "NO": "🇳🇴", "DK": "🇩🇰", "FI": "🇫🇮",
 }
 
-APPLICANT_EMOJI = {"NEDA": "👩 ندا", "TOHID": "👨 توحید"}
+APPLICANT_EMOJI = get_all_applicant_labels()
 
 # ═══════════════════════════════════════════════════
 # SHEET BUILDERS
@@ -392,12 +393,16 @@ def build_sheet_01_dashboard(wb, data, opps):
     wc(ws, row, 1, "تعداد فرصت‌ها بر اساس متقاضی", font=fa(sz=12, bold=True, color=C_DARK))
     ws.merge_cells(f"A{row}:H{row}")
     row += 1
-    neda_count = sum(1 for o in opps if "NEDA" in str(o.get("applicant","")).upper() or "ندا" in str(o.get("applicant","")))
-    tohid_count = sum(1 for o in opps if "TOHID" in str(o.get("applicant","")).upper() or "توحید" in str(o.get("applicant","")))
-    wc(ws, row, 1, "👩 ندا — مامایی", font=fa(sz=10, bold=True), bg=C_LPURPLE, align=center())
-    wc(ws, row, 2, neda_count, font=fa(sz=14, bold=True, color=C_PURPLE), align=center())
-    wc(ws, row, 3, "👨 توحید — IT", font=fa(sz=10, bold=True), bg=C_LBLUE if False else C_LIGHT, align=center())
-    wc(ws, row, 4, tohid_count, font=fa(sz=14, bold=True, color=C_MED), align=center())
+    # Dynamic applicant counts from config
+    applicants = get_applicants()
+    for i, a in enumerate(applicants):
+        app_id = a["id"].upper()
+        app_label = get_applicant_label(a["id"])
+        profession = a.get("profession", "")
+        cnt = sum(1 for o in opps if app_id in str(o.get("applicant", "")).upper() or a.get("name_fa", "") in str(o.get("applicant", "")))
+        col = i * 2 + 1
+        wc(ws, row, col, f"{app_label} — {profession}", font=fa(sz=10, bold=True), bg=C_LPURPLE if i == 0 else C_LIGHT, align=center())
+        wc(ws, row, col + 1, cnt, font=fa(sz=14, bold=True, color=C_PURPLE if i == 0 else C_MED), align=center())
     
     # Country breakdown
     row += 2
@@ -528,14 +533,21 @@ def build_sheet_02_opportunities(wb, opps):
     # Auto filter
     ws.auto_filter.ref = f"A1:{get_column_letter(len(headers))}{len(opps)+1}"
 
-def build_sheet_03_neda(wb, opps):
-    """فرصت‌های ندا"""
-    ws = wb.create_sheet("03 ندا — مامایی")
+def build_sheet_applicant(wb, opps, app_info, sheet_num):
+    """شیت فرصت‌های هر متقاضی — داینامیک از config"""
+    app_id = app_info["id"].upper()
+    name_fa = app_info.get("name_fa", app_id)
+    profession = app_info.get("profession", "")
+    emoji = app_info.get("emoji", "?")
+    color = C_PURPLE if app_info.get("gender") == "female" else C_MED
+    
+    sheet_name = f"{sheet_num:02d} {name_fa} — {profession}"
+    ws = wb.create_sheet(sheet_name)
     rtl(ws)
     
-    neda_opps = [o for o in opps if "NEDA" in str(o.get("applicant","")).upper() or "ندا" in str(o.get("applicant",""))]
+    app_opps = [o for o in opps if app_id in str(o.get("applicant","")).upper() or name_fa in str(o.get("applicant",""))]
     
-    wc(ws, 1, 1, f"👩 فرصت‌های مامایی ندا — {len(neda_opps)} فرصت", font=fa(sz=14, bold=True, color=C_PURPLE))
+    wc(ws, 1, 1, f"{emoji} فرصت‌های {profession} {name_fa} — {len(app_opps)} فرصت", font=fa(sz=14, bold=True, color=color))
     ws.merge_cells("A1:L1")
     
     headers = ["#", "کارفرما", "کشور", "شغل", "Evidence", "Final", "ایمیل", "حمایت", "ویزا", "زبان", "ثبت‌نام", "تصمیم"]
@@ -569,15 +581,8 @@ def build_sheet_03_neda(wb, opps):
     for i, w in enumerate(widths): auto_width(ws, i + 1, w)
     freeze(ws, "A4")
 
-def build_sheet_04_tohid(wb, opps):
-    """فرصت‌های توحید"""
-    ws = wb.create_sheet("04 توحید — IT")
-    rtl(ws)
-    
-    tohid_opps = [o for o in opps if "TOHID" in str(o.get("applicant","")).upper() or "توحید" in str(o.get("applicant",""))]
-    
-    wc(ws, 1, 1, f"👨 فرصت‌های IT توحید — {len(tohid_opps)} فرصت", font=fa(sz=14, bold=True, color=C_MED))
-    ws.merge_cells("A1:L1")
+# build_sheet_applicant جایگزین build_sheet_03_neda و build_sheet_04_tohid شد
+# در main() برای هر متقاضی از config فراخوانی می‌شود
     
     headers = ["#", "کارفرما", "کشور", "شغل", "Evidence", "Final", "ایمیل", "حمایت", "ویزا", "زبان", "ثبت‌نام", "تصمیم"]
     for i, h in enumerate(headers):
@@ -1011,7 +1016,9 @@ def build_sheet_13_email_analysis(wb, data):
         app = e.get("applicant", "UNKNOWN")
         if app in by_app: by_app[app] += 1
     
-    for app_key, app_label in [("TOHID", "👨 توحید"), ("NEDA", "👩 ندا")]:
+    for a in get_applicants():
+        app_key = a["id"].upper()
+        app_label = get_applicant_label(a["id"])
         count = by_app.get(app_key, 0)
         p = round(count / job_related * 100) if job_related else 0
         wc(ws, row, 1, app_label, font=fa(sz=9, bold=True), align=center())
@@ -1097,11 +1104,11 @@ def main():
     print("  📝 Sheet 02: فرصت‌ها...")
     build_sheet_02_opportunities(wb, opps)
     
-    print("  📝 Sheet 03: ندا...")
-    build_sheet_03_neda(wb, opps)
-    
-    print("  📝 Sheet 04: توحید...")
-    build_sheet_04_tohid(wb, opps)
+    # Dynamic applicant sheets from config
+    for i, app_info in enumerate(get_applicants()):
+        sheet_num = 3 + i
+        print(f"  📝 Sheet {sheet_num:02d}: {app_info.get('name_fa', app_info['id'])}...")
+        build_sheet_applicant(wb, opps, app_info, sheet_num)
     
     print("  📝 Sheet 05: کارفرمایان...")
     build_sheet_05_employers(wb, data)
@@ -1144,8 +1151,9 @@ def main():
     print(f"  فایل: {filename}")
     print(f"  شیت‌ها: 13")
     print(f"  فرصت‌ها: {len(opps)}")
-    print(f"  ندا: {sum(1 for o in opps if 'NEDA' in str(o.get('applicant','')).upper() or 'ندا' in str(o.get('applicant','')))}")
-    print(f"  توحید: {sum(1 for o in opps if 'TOHID' in str(o.get('applicant','')).upper() or 'توحید' in str(o.get('applicant','')))}")
+    for a in get_applicants():
+        cnt = sum(1 for o in opps if a['id'].upper() in str(o.get('applicant','')).upper() or a.get('name_fa','') in str(o.get('applicant','')))
+        print(f"  {a.get('emoji','?')} {a.get('name_fa', a['id'])}: {cnt}")
     print(f"  RTL: ✅ همه شیت‌ها")
     print(f"  فونت: B Mitra + Times New Roman")
     print(f"  Freeze: ✅")

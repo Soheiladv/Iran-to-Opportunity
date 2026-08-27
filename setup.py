@@ -213,7 +213,67 @@ def write_env(accounts):
     print(f"  {WARN} App Passwordها را در .env وارد کنید!")
 
 # ═══════════════════════════════════════════════════
-# مرحله ۵: تأیید نهایی
+# مرحله ۵: ساخت config.json
+# ═══════════════════════════════════════════════════
+def build_config(profiles, accounts):
+    """ساخت config.json داینامیک — هیچ نامی hardcoded نیست"""
+    print(f"\n{STEP} مرحله ۵: ساخت config.json")
+    print("─" * 40)
+    
+    applicants = []
+    for person_key in ["tohid", "neda"]:
+        prof = profiles.get(person_key, {})
+        # پیدا کردن ایمیل مرتبط
+        acc = next((a for a in accounts if a.get("person", "").lower() == person_key), {})
+        
+        name = prof.get("name", "")
+        name_fa = prof.get("name", "").split()[0] if prof.get("name") else person_key
+        profession = prof.get("profession", "")
+        
+        # تشخیص جنسیت از نام
+        gender = "male" if person_key == "tohid" else "female"
+        emoji = "👨" if gender == "male" else "👩"
+        
+        # کلمات کلیدی برای تشخیص ایمیل شغلی
+        keywords = []
+        if profession:
+            keywords.extend(profession.lower().split())
+        if name_fa:
+            keywords.append(name_fa.lower())
+        
+        applicants.append({
+            "id": person_key,
+            "name": name,
+            "name_fa": name_fa,
+            "gender": gender,
+            "emoji": emoji,
+            "profession": profession,
+            "keywords": keywords,
+            "linkedin": acc.get("linkedin", prof.get("linkedin", "")),
+            "email": acc.get("email", prof.get("email_primary", "")),
+            "email_id": acc.get("id", ""),
+            "english": prof.get("english", ""),
+            "german": prof.get("german", ""),
+        })
+    
+    config = {
+        "version": "1.0",
+        "created": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "applicants": applicants,
+    }
+    
+    fp = os.path.join(BASE, "config.json")
+    with open(fp, "w", encoding="utf-8") as f:
+        json.dump(config, f, ensure_ascii=False, indent=2)
+    
+    for a in applicants:
+        print(f"  {OK} {a['emoji']} {a['name_fa']} — {a['profession']} — {a['email']}")
+    print(f"  {OK} ذخیره شد: config.json")
+    
+    return config
+
+# ═══════════════════════════════════════════════════
+# مرحله ۶: تأیید نهایی
 # ═══════════════════════════════════════════════════
 def final_check():
     print(f"\n{STEP} مرحله ۵: تأیید نهایی")
@@ -257,6 +317,7 @@ def main():
     profiles = setup_profiles()
     accounts = setup_emails()
     write_env(accounts)
+    build_config(profiles, accounts)
     final_check()
 
 if __name__ == "__main__":

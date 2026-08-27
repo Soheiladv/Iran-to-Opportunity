@@ -54,6 +54,14 @@ def main():
     print(f"  📅 {DATE_STR}")
     print("═" * 60)
     
+    # Check if config.json exists
+    config_path = os.path.join(BASE, "config.json")
+    if not os.path.exists(config_path):
+        print("\n  ⚠️ config.json پیدا نشد!")
+        print("  ابتدا اجرا کنید: python setup.py")
+        print("  سپس دوباره اجرا کنید: python run.py")
+        return
+    
     steps = [
         ("تحلیل ایمیل شغلی", "email_analyzer.py"),
         ("ساخت Excel ایمیل", "email_dashboard.py"),
