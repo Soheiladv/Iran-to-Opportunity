@@ -20,6 +20,7 @@ DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
 TOTAL_STEPS = 5
 BAR_WIDTH = 30
 
+# Define steps with emoji and script info
 STEP_INFO = [
     {"key": "email_analyze", "name": "تحلیل ایمیل شغلی",  "script": "email_analyzer.py",      "emoji": "📧"},
     {"key": "email_excel",   "name": "ساخت Excel ایمیل",  "script": "email_dashboard.py",     "emoji": "📊"},
@@ -30,10 +31,12 @@ STEP_INFO = [
 
 
 def progress_bar(current, total, width=BAR_WIDTH):
+    """Display progress bar"""
     pct = current / total if total else 0
     filled = int(width * pct)
     bar = "█" * filled + "░" * (width - filled)
-    return f"  [{bar}] {current}/{total} ({int(pct*100)}%)"
+    percent = int(pct * 100)
+    return f"  [{bar}] {current}/{total} ({percent}%)"
 
 
 def print_header():
@@ -45,7 +48,8 @@ def print_header():
     print()
 
 
-def print_status_line(results, running_idx=None):
+def print_step_status(results, running_idx=None):
+    """Print status of all steps"""
     for i, step in enumerate(STEP_INFO):
         key = step["key"]
         if key in results:
@@ -59,6 +63,7 @@ def print_status_line(results, running_idx=None):
 
 
 def run_step(step_info, step_num):
+    """Run a single step and return success/failure"""
     name = step_info["name"]
     script = step_info["script"]
     emoji = step_info["emoji"]
@@ -103,6 +108,7 @@ def run_step(step_info, step_num):
 
 
 def main():
+    # Check config.json
     config_path = os.path.join(BASE, "config.json")
     if not os.path.exists(config_path):
         print_header()
@@ -113,10 +119,10 @@ def main():
 
     results = {}
     print_header()
-    print_status_line(results, running_idx=0)
+    print_step_status(results, running_idx=0)
 
     for i, step in enumerate(STEP_INFO):
-        # Show which step is running
+        # Show which step is running with progress
         for j, s in enumerate(STEP_INFO):
             key = s["key"]
             if key in results:
@@ -128,7 +134,7 @@ def main():
             print(f"  {icon} {s['emoji']} {s['name']}")
         print()
 
-        # Progress bar
+        # Progress bar showing completed steps
         completed = sum(1 for v in results.values() if v is not None)
         print(progress_bar(completed, TOTAL_STEPS))
         print()
@@ -137,7 +143,11 @@ def main():
         success = run_step(step, i + 1)
         results[step["key"]] = success
 
-    # Final
+        # Show progress after step
+        print(progress_bar(completed + 1, TOTAL_STEPS))
+        print()
+
+    # Final summary
     completed = sum(1 for v in results.values() if v)
     failed = sum(1 for v in results.values() if not v)
 
@@ -153,7 +163,7 @@ def main():
     print(progress_bar(completed + failed, TOTAL_STEPS))
     print()
 
-    # Latest Excel
+    # Show latest Excel
     dash_dir = os.path.join(BASE, "dashboard")
     if os.path.isdir(dash_dir):
         xlsx_files = [f for f in os.listdir(dash_dir) if f.endswith(".xlsx") and "~$" not in f]
