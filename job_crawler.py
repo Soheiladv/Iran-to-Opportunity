@@ -26,6 +26,8 @@ NOW = datetime.now()
 DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
 FILE_DATE = NOW.strftime("%Y%m%d_%H%M")
 
+OK = "✅"
+
 # ═══════════════════════════════════════════════════
 # سایت‌های جستجو
 # ═══════════════════════════════════════════════════
@@ -184,7 +186,7 @@ def match_applicant(job, applicants):
         for kw in info["keywords"]:
             if kw in title_lower:
                 return person
-    return None
+    return "UNKNOWN"
 
 # ═══════════════════════════════════════════════════
 # ذخیره نتایج

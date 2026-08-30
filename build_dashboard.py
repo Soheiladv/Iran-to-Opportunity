@@ -552,43 +552,9 @@ def build_sheet_applicant(wb, opps, app_info, sheet_num):
     
     headers = ["#", "کارفرما", "کشور", "شغل", "Evidence", "Final", "ایمیل", "حمایت", "ویزا", "زبان", "ثبت‌نام", "تصمیم"]
     for i, h in enumerate(headers):
-        wc(ws, 3, i + 1, h, font=fa(sz=9, bold=True, color=C_WHITE), bg=C_PURPLE, align=center())
+        wc(ws, 3, i + 1, h, font=fa(sz=9, bold=True, color=C_WHITE), bg=color, align=center())
     
-    for idx, o in enumerate(neda_opps, 1):
-        country = o.get("country", "")
-        for code, flag in COUNTRY_FLAGS.items():
-            if code in str(country): country = f"{flag} {country}"; break
-        
-        email = o.get("email", "")
-        if not email:
-            for emp_name, emp_email in VERIFIED_EMAILS.items():
-                if emp_name.lower() in o.get("employer", "").lower():
-                    email = emp_email; break
-        
-        vals = [idx, o.get("employer",""), country, o.get("job",""),
-                o.get("evidence_score",""), o.get("final_score","") or "—",
-                email, o.get("sponsorship",""), o.get("visa",""),
-                o.get("language",""), o.get("registration",""), o.get("decision","")]
-        
-        for ci, v in enumerate(vals):
-            bg = None
-            if ci == 11:
-                if "APPLY" in str(v): bg = C_LGREEN
-                elif "REVIEW" in str(v) or "NEEDS" in str(v): bg = C_LYELLOW
-            wc(ws, idx + 3, ci + 1, v, font=fa(sz=9), bg=bg)
-    
-    widths = [5, 22, 16, 22, 10, 10, 32, 12, 14, 12, 14, 22]
-    for i, w in enumerate(widths): auto_width(ws, i + 1, w)
-    freeze(ws, "A4")
-
-# build_sheet_applicant جایگزین build_sheet_03_neda و build_sheet_04_tohid شد
-# در main() برای هر متقاضی از config فراخوانی می‌شود
-    
-    headers = ["#", "کارفرما", "کشور", "شغل", "Evidence", "Final", "ایمیل", "حمایت", "ویزا", "زبان", "ثبت‌نام", "تصمیم"]
-    for i, h in enumerate(headers):
-        wc(ws, 3, i + 1, h, font=fa(sz=9, bold=True, color=C_WHITE), bg=C_MED, align=center())
-    
-    for idx, o in enumerate(tohid_opps, 1):
+    for idx, o in enumerate(app_opps, 1):
         country = o.get("country", "")
         for code, flag in COUNTRY_FLAGS.items():
             if code in str(country): country = f"{flag} {country}"; break

@@ -197,7 +197,8 @@ def sheet_all_emails(wb, data):
     for idx, e in enumerate(sorted(job_emails, key=lambda x: x.get("date", ""), reverse=True), 1):
         cat = e.get("category", "unknown")
         info = CAT.get(cat, CAT["unknown"])
-        app = e.get("applicant", "?")            app_label = get_applicant_label(app) if app in ['NEDA', 'TOHID'] else "?"
+        app = e.get("applicant", "?")
+        app_label = get_applicant_label(app) if app else "?"
         
         employer = e.get("employer", "")
         country = ""

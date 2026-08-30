@@ -1,19 +1,36 @@
 # ==============================================
-# Iran-to-Opportunity — .gitignore
+# MigrationHunter — .gitignore
 # حفاظت از اطلاعات شخصی
 # ==============================================
 
 # ---- اطلاعات شخصی (فایل‌های واقعی) ----
-profiles/CV_NEDA.md
-profiles/CV_TOHID.md
-output/EMAILS_TO_SEND.md
+profiles/
+output/
 
 # ---- تنظیمات محلی و API Keys ----
 .env
 .env.local
 config.json
 secrets.json
+email_accounts.json
 !.env.example
+
+# ---- حافظه (حاوی اطلاعات شخصی) ----
+memory/
+
+# ---- داشبورد (حاوی اطلاعات شخصی) ----
+dashboard/
+dashboard/archive/
+
+# ---- لینکدین (حاوی اطلاعات شخصی) ----
+linkedin_data/
+
+# ---- اسکریپت‌های آرشیو شده ----
+scripts_archive/
+
+# ---- تست و موقت ----
+test_input.txt
+test_setup.py
 
 # ---- Python ----
 __pycache__/

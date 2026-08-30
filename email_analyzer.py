@@ -763,19 +763,30 @@ def save_to_memory(results, email_addr):
 # MAIN
 # ═══════════════════════════════════════════════════
 def load_accounts():
-    """Load accounts from config.json — single source of truth"""
+    """Load accounts from config.json — multiple emails per applicant"""
     config = load_config()
     accounts = []
     for a in config.get("applicants", []):
-        accounts.append({
-            "id": a["id"],
-            "person": a["id"].upper(),
-            "person_fa": a.get("name_fa", a["id"]),
-            "email": a.get("email", ""),
-            "provider": "gmail",
-            "linkedin": a.get("linkedin", ""),
-            "active": bool(a.get("email")),
-        })
+        emails = a.get("emails", [])
+        # backward compat: single email field
+        if not emails and a.get("email"):
+            emails = [a["email"]]
+        
+        linkedins = a.get("linkedins", [])
+        if not linkedins and a.get("linkedin"):
+            linkedins = [a["linkedin"]]
+        
+        for idx, email in enumerate(emails, 1):
+            accounts.append({
+                "id": a["id"],
+                "person": a["id"].upper(),
+                "person_fa": a.get("name_fa", a["id"]),
+                "email": email,
+                "provider": "gmail",
+                "linkedin": linkedins[idx - 1] if idx - 1 < len(linkedins) else "",
+                "active": bool(email),
+                "email_index": idx,
+            })
     return accounts
 
 def load_env_passwords():
@@ -784,7 +795,7 @@ def load_env_passwords():
     env_file = os.path.join(BASE, ".env")
     if not os.path.exists(env_file):
         return passwords
-    with open(env_file) as f:
+    with open(env_file, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line.startswith("EMAIL_PASSWORD_") and "=" in line:
@@ -812,10 +823,15 @@ def analyze_single_account(account, passwords, days=30, limit=200):
     linkedin = account.get("linkedin", "")
     person = account.get("person", "UNKNOWN")
     person_fa = account.get("person_fa", "?")
+    email_index = account.get("email_index", 1)
     
-    # Find password — try ID_1, then ID
-    pw_key = f"EMAIL_PASSWORD_{acc_id}_1"
+    # Find password using email_index
+    pw_key = f"EMAIL_PASSWORD_{acc_id}_{email_index}"
     password = passwords.get(pw_key, "")
+    if not password:
+        # fallback to old format
+        pw_key = f"EMAIL_PASSWORD_{acc_id}_1"
+        password = passwords.get(pw_key, "")
     if not password:
         pw_key = f"EMAIL_PASSWORD_{acc_id}"
         password = passwords.get(pw_key, "")
@@ -916,7 +932,9 @@ def main():
         if args.dry_run:
             email = account["email"]
             acc_id = account["id"].upper()
-            password = passwords.get(f"EMAIL_PASSWORD_{acc_id}_1", "") or passwords.get(f"EMAIL_PASSWORD_{acc_id}", "")
+            email_index = account.get("email_index", 1)
+            pw_key = f"EMAIL_PASSWORD_{acc_id}_{email_index}"
+            password = passwords.get(pw_key, "") or passwords.get(f"EMAIL_PASSWORD_{acc_id}_1", "") or passwords.get(f"EMAIL_PASSWORD_{acc_id}", "")
             if not password or password.startswith("اینجا") or "REPLACE" in password:
                 print(f"\n⚠️ {email}: رمز تنظیم نشده")
                 continue
