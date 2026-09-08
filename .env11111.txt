@@ -1,0 +1,12 @@
+# MigrationHunter — Passwords
+# Generated: 2026-08-29 19:35
+
+# توحید ارجمند — t.arjmand@gmail.com
+EMAIL_توحید_ارجمند_1=t.arjmand1980@gmail.com
+EMAIL_PASSWORD_توحید_ارجمند_1=zfqq bvtx bsak kxcy
+EMAIL_PROVIDER_توحید_ارجمند_1=gmail
+
+# ندا ارجمند — arjmand.neda.1987@gmail.com
+EMAIL_ندا_ارجمند_1=arjmand.neda.1987@gmail.com
+EMAIL_PASSWORD_ندا_ارجمند_1=owov dnsb xxus pnxr
+EMAIL_PROVIDER_ندا_ارجمند_1=gmail

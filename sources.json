@@ -1,0 +1,207 @@
+{
+  "sources": [
+    {
+      "name": "Seek NZ",
+      "country": "NZ",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.seek.co.nz/midwife-jobs",
+      "search_urls": [
+        "https://www.seek.co.nz/midwife-jobs",
+        "https://www.seek.co.nz/it-manager-jobs"
+      ],
+      "trust": 85
+    },
+    {
+      "name": "Trade Me Jobs NZ",
+      "country": "NZ",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.trademe.co.nz/jobs",
+      "search_urls": [
+        "https://www.trademe.co.nz/jobs/healthcare"
+      ],
+      "trust": 80
+    },
+    {
+      "name": "Seek AU",
+      "country": "AU",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.seek.com.au/midwife-jobs",
+      "search_urls": [
+        "https://www.seek.com.au/midwife-jobs",
+        "https://www.seek.com.au/it-infrastructure-jobs"
+      ],
+      "trust": 85
+    },
+    {
+      "name": "Indeed Australia",
+      "country": "AU",
+      "type": "job_board",
+      "enabled": true,
+      "url": "au.indeed.com",
+      "search_urls": [
+        "https://au.indeed.com/jobs?q=midwife",
+        "https://au.indeed.com/jobs?q=it+manager"
+      ],
+      "trust": 75
+    },
+    {
+      "name": "Australian JobSearch (رسمی دولت)",
+      "country": "AU",
+      "type": "government",
+      "enabled": true,
+      "url": "https://jobsearch.gov.au",
+      "search_urls": [
+        "https://jobsearch.gov.au/jobs?keywords=midwife"
+      ],
+      "trust": 92
+    },
+    {
+      "name": "Job Bank Canada (رسمی دولت)",
+      "country": "CA",
+      "type": "government",
+      "enabled": true,
+      "url": "https://www.jobbank.gc.ca",
+      "search_urls": [
+        "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife&locationstring=",
+        "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=it+manager&locationstring="
+      ],
+      "trust": 90
+    },
+    {
+      "name": "Indeed Canada",
+      "country": "CA",
+      "type": "job_board",
+      "enabled": true,
+      "url": "ca.indeed.com",
+      "search_urls": [
+        "https://ca.indeed.com/jobs?q=midwife&l=",
+        "https://ca.indeed.com/jobs?q=it+infrastructure+manager&l="
+      ],
+      "trust": 75
+    },
+    {
+      "name": "Monster Canada",
+      "country": "CA",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.monster.ca",
+      "search_urls": [
+        "https://www.monster.ca/jobs/search?q=midwife"
+      ],
+      "trust": 70
+    },
+    {
+      "name": "StepStone DE",
+      "country": "DE",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.stepstone.de",
+      "search_urls": [
+        "https://www.stepstone.de/jobs/it-manager"
+      ],
+      "trust": 80
+    },
+    {
+      "name": "Indeed DE",
+      "country": "DE",
+      "type": "job_board",
+      "enabled": true,
+      "url": "de.indeed.com",
+      "search_urls": [
+        "https://de.indeed.com/jobs?q=it+manager&l="
+      ],
+      "trust": 75
+    },
+    {
+      "name": "Bundesagentur für Arbeit (رسمی دولت آلمان)",
+      "country": "DE",
+      "type": "government",
+      "enabled": true,
+      "url": "https://www.arbeitsagentur.de/jobsuche",
+      "search_urls": [
+        "https://www.arbeitsagentur.de/jobsuche/suche?was=IT+Manager"
+      ],
+      "trust": 92
+    },
+    {
+      "name": "Make it in Germany (پورتال رسمی برای متخصصان خارجی)",
+      "country": "DE",
+      "type": "government",
+      "enabled": true,
+      "url": "https://www.make-it-in-germany.com/en/jobs",
+      "search_urls": [
+        "https://www.make-it-in-germany.com/en/jobs"
+      ],
+      "trust": 88
+    },
+    {
+      "name": "IrishJobs",
+      "country": "IE",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.irishjobs.ie",
+      "search_urls": [
+        "https://www.irishjobs.ie"
+      ],
+      "trust": 70
+    },
+    {
+      "name": "Indeed Ireland",
+      "country": "IE",
+      "type": "job_board",
+      "enabled": true,
+      "url": "ie.indeed.com",
+      "search_urls": [
+        "https://ie.indeed.com/jobs?q=it+manager"
+      ],
+      "trust": 75
+    },
+    {
+      "name": "jobs.ie",
+      "country": "IE",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.jobs.ie",
+      "search_urls": [
+        "https://www.jobs.ie"
+      ],
+      "trust": 68
+    },
+    {
+      "name": "Indeed NL",
+      "country": "NL",
+      "type": "job_board",
+      "enabled": true,
+      "url": "nl.indeed.com",
+      "search_urls": [
+        "https://nl.indeed.com"
+      ],
+      "trust": 70
+    },
+    {
+      "name": "Werk.nl (رسمی دولت هلند - UWV)",
+      "country": "NL",
+      "type": "government",
+      "enabled": true,
+      "url": "https://www.werk.nl/vacatures",
+      "search_urls": [
+        "https://www.werk.nl/vacatures/vacature-zoeken"
+      ],
+      "trust": 90
+    },
+    {
+      "name": "Undutchables (مخصوص متخصصان خارجی در هلند)",
+      "country": "NL",
+      "type": "job_board",
+      "enabled": true,
+      "url": "https://www.undutchables.nl/en/jobs",
+      "search_urls": [
+        "https://www.undutchables.nl/en/jobs"
+      ],
+      "trust": 78
+    }
+  ]
+}

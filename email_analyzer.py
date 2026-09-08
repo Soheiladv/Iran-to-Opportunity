@@ -851,7 +851,14 @@ def analyze_single_account(account, passwords, days=30, limit=200):
     try:
         connector.connect()
     except imaplib.IMAP4.error as e:
-        print(f"  ❌ خطا: {e}")
+        print(f"  ❌ خطای IMAP: {e}")
+        return None
+    except OSError as e:
+        # شامل socket.gaierror (DNS)، ConnectionRefusedError، timeout و مشابه
+        print(f"  ❌ خطای شبکه/DNS در اتصال به {connector.imap_server}: {e}")
+        print(f"     این معمولاً یعنی مشکل از اینترنت/DNS/فایروال سیستم است، نه خود اسکریپت.")
+        print(f"     تست کن: در Command Prompt بزن →  ping imap.gmail.com")
+        print(f"     (اگه پینگ هم جواب نداد، یعنی مشکل قبل از رسیدن به این کد است — اتصال اینترنت یا DNS رو چک کن)")
         return None
     
     # Search

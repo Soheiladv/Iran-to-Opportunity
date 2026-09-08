@@ -30,12 +30,18 @@ DATE_STR = NOW.strftime("%Y-%m-%d %H:%M")
 FILE_DATE = NOW.strftime("%Y%m%d_%H%M")
 OK = "✅"
 
+SOURCES_PATH = os.path.join(BASE, "sources.json")
+
 # ════════════════════════════════════════════════════
-#SOURCE DEFINITIONS - تعریف منابع جستجو (قابل تغییر از config)
+# SOURCE DEFINITIONS - تعریف منابع جستجو (پیش‌فرض)
+# این‌ها فقط "پیش‌فرض" هستند — لیست واقعی که استفاده می‌شود در
+# sources.json ذخیره می‌شود و از تب تنظیمات (web_ui.py) هم قابل
+# مدیریت است (فعال/غیرفعال‌کردن، افزودن منبع جدید) بدون دست‌زدن به این فایل.
 # ════════════════════════════════════════════════════
-SEARCH_SOURCES = [
+DEFAULT_SOURCES = [
+    # ---------------- New Zealand ----------------
     {
-        "name": "Seek NZ", "country": "NZ", "type": "job_board",
+        "name": "Seek NZ", "country": "NZ", "type": "job_board", "enabled": True,
         "url": "https://www.seek.co.nz/midwife-jobs",
         "search_urls": [
             "https://www.seek.co.nz/midwife-jobs",
@@ -44,15 +50,14 @@ SEARCH_SOURCES = [
         "trust": 85,
     },
     {
-        "name": "Trade Me Jobs NZ", "country": "NZ", "type": "job_board",
+        "name": "Trade Me Jobs NZ", "country": "NZ", "type": "job_board", "enabled": True,
         "url": "https://www.trademe.co.nz/jobs",
-        "search_urls": [
-            "https://www.trademe.co.nz/jobs/healthcare",
-        ],
+        "search_urls": ["https://www.trademe.co.nz/jobs/healthcare"],
         "trust": 80,
     },
+    # ---------------- Australia ----------------
     {
-        "name": "Seek AU", "country": "AU", "type": "job_board",
+        "name": "Seek AU", "country": "AU", "type": "job_board", "enabled": True,
         "url": "https://www.seek.com.au/midwife-jobs",
         "search_urls": [
             "https://www.seek.com.au/midwife-jobs",
@@ -61,7 +66,23 @@ SEARCH_SOURCES = [
         "trust": 85,
     },
     {
-        "name": "Job Bank Canada", "country": "CA", "type": "government",
+        "name": "Indeed Australia", "country": "AU", "type": "job_board", "enabled": True,
+        "url": "au.indeed.com",
+        "search_urls": [
+            "https://au.indeed.com/jobs?q=midwife",
+            "https://au.indeed.com/jobs?q=it+manager",
+        ],
+        "trust": 75,
+    },
+    {
+        "name": "Australian JobSearch (رسمی دولت)", "country": "AU", "type": "government", "enabled": True,
+        "url": "https://jobsearch.gov.au",
+        "search_urls": ["https://jobsearch.gov.au/jobs?keywords=midwife"],
+        "trust": 92,
+    },
+    # ---------------- Canada ----------------
+    {
+        "name": "Job Bank Canada (رسمی دولت)", "country": "CA", "type": "government", "enabled": True,
         "url": "https://www.jobbank.gc.ca",
         "search_urls": [
             "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife&locationstring=",
@@ -70,7 +91,7 @@ SEARCH_SOURCES = [
         "trust": 90,
     },
     {
-        "name": "Indeed Canada", "country": "CA", "type": "job_board",
+        "name": "Indeed Canada", "country": "CA", "type": "job_board", "enabled": True,
         "url": "ca.indeed.com",
         "search_urls": [
             "https://ca.indeed.com/jobs?q=midwife&l=",
@@ -79,34 +100,105 @@ SEARCH_SOURCES = [
         "trust": 75,
     },
     {
-        "name": "StepStone DE", "country": "DE", "type": "job_board",
+        "name": "Monster Canada", "country": "CA", "type": "job_board", "enabled": True,
+        "url": "https://www.monster.ca",
+        "search_urls": ["https://www.monster.ca/jobs/search?q=midwife"],
+        "trust": 70,
+    },
+    # ---------------- Germany ----------------
+    {
+        "name": "StepStone DE", "country": "DE", "type": "job_board", "enabled": True,
         "url": "https://www.stepstone.de",
-        "search_urls": [
-            "https://www.stepstone.de/jobs/it-manager",
-        ],
+        "search_urls": ["https://www.stepstone.de/jobs/it-manager"],
         "trust": 80,
     },
     {
-        "name": "Indeed DE", "country": "DE", "type": "job_board",
+        "name": "Indeed DE", "country": "DE", "type": "job_board", "enabled": True,
         "url": "de.indeed.com",
-        "search_urls": [
-            "https://de.indeed.com/jobs?q=it+manager&l=",
-        ],
+        "search_urls": ["https://de.indeed.com/jobs?q=it+manager&l="],
         "trust": 75,
     },
     {
-        "name": "IrishJobs", "country": "IE", "type": "job_board",
+        "name": "Bundesagentur für Arbeit (رسمی دولت آلمان)", "country": "DE", "type": "government", "enabled": True,
+        "url": "https://www.arbeitsagentur.de/jobsuche",
+        "search_urls": ["https://www.arbeitsagentur.de/jobsuche/suche?was=IT+Manager"],
+        "trust": 92,
+    },
+    {
+        "name": "Make it in Germany (پورتال رسمی برای متخصصان خارجی)", "country": "DE", "type": "government", "enabled": True,
+        "url": "https://www.make-it-in-germany.com/en/jobs",
+        "search_urls": ["https://www.make-it-in-germany.com/en/jobs"],
+        "trust": 88,
+    },
+    # ---------------- Ireland ----------------
+    {
+        "name": "IrishJobs", "country": "IE", "type": "job_board", "enabled": True,
         "url": "https://www.irishjobs.ie",
         "search_urls": ["https://www.irishjobs.ie"],
         "trust": 70,
     },
     {
-        "name": "Indeed NL", "country": "NL", "type": "job_board",
+        "name": "Indeed Ireland", "country": "IE", "type": "job_board", "enabled": True,
+        "url": "ie.indeed.com",
+        "search_urls": ["https://ie.indeed.com/jobs?q=it+manager"],
+        "trust": 75,
+    },
+    {
+        "name": "jobs.ie", "country": "IE", "type": "job_board", "enabled": True,
+        "url": "https://www.jobs.ie",
+        "search_urls": ["https://www.jobs.ie"],
+        "trust": 68,
+    },
+    # ---------------- Netherlands ----------------
+    {
+        "name": "Indeed NL", "country": "NL", "type": "job_board", "enabled": True,
         "url": "nl.indeed.com",
         "search_urls": ["https://nl.indeed.com"],
         "trust": 70,
     },
+    {
+        "name": "Werk.nl (رسمی دولت هلند - UWV)", "country": "NL", "type": "government", "enabled": True,
+        "url": "https://www.werk.nl/vacatures",
+        "search_urls": ["https://www.werk.nl/vacatures/vacature-zoeken"],
+        "trust": 90,
+    },
+    {
+        "name": "Undutchables (مخصوص متخصصان خارجی در هلند)", "country": "NL", "type": "job_board", "enabled": True,
+        "url": "https://www.undutchables.nl/en/jobs",
+        "search_urls": ["https://www.undutchables.nl/en/jobs"],
+        "trust": 78,
+    },
 ]
+
+# نکته: LinkedIn عمداً اضافه نشده — قوانین استفاده‌ی LinkedIn، خزیدن خودکار
+# (scraping) را صریحاً ممنوع کرده و علاوه‌بر آن سایتش کاملاً با جاوااسکریپت و
+# لاگین محافظت می‌شود، پس این پارسر ساده روی آن هیچ نتیجه‌ای نمی‌گیرد.
+
+
+def load_sources():
+    """
+    منابع را از sources.json می‌خواند. اگر فایل وجود نداشته باشد، همین لیست
+    پیش‌فرض را در sources.json می‌نویسد تا از تب تنظیمات هم قابل مدیریت باشد.
+    """
+    if os.path.exists(SOURCES_PATH):
+        try:
+            with open(SOURCES_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            sources = data.get("sources", [])
+            if sources:
+                return sources
+        except Exception:
+            pass
+    # فایل نبود یا خراب بود → پیش‌فرض را بنویس و برگردان
+    save_sources(DEFAULT_SOURCES)
+    return DEFAULT_SOURCES
+
+
+def save_sources(sources):
+    with open(SOURCES_PATH, "w", encoding="utf-8") as f:
+        json.dump({"sources": sources}, f, ensure_ascii=False, indent=2)
+
+
 
 # ═══════════════════════════════════════════════════
 # جستجوهای δυναmiک - هیچ Hardcode ندیده
@@ -250,9 +342,7 @@ def extract_jobs_from_html(html, source_info):
         
         # تمیز کردن لینک
         if href.startswith("/"):
-            # لینک نسبی - مسیر项目
             from urllib.parse import urljoin
-            base = source_info.get("url", "").split("/")[0] + "//" + urlparse(url).netloc if 'urlparse' else href
             href = urljoin(source_info.get("url", ""), href)
         
         # استخراج kompani (اگر قابلی هست)
@@ -451,18 +541,43 @@ def fetch_page(url, timeout=15):
 # ═══════════════════════════════════════════════════
 # جستجو در منابع
 # ═══════════════════════════════════════════════════
-def search_source(source):
-    """جستجو در یک منبع -return jobs"""
+def _guess_keyword(url):
+    """حدس زدن کلیدواژه‌ی جستجو از روی URL، فقط برای نمایش زنده‌ی پیشرفت (تزئینی)."""
+    from urllib.parse import urlparse, parse_qs
+    try:
+        parsed = urlparse(url)
+        qs = parse_qs(parsed.query)
+        for key in ("q", "searchstring", "was", "keywords", "keyword"):
+            if key in qs and qs[key]:
+                return qs[key][0].replace("+", " ")
+        # وگرنه از مسیر آدرس حدس بزن، مثل /midwife-jobs یا /it-manager
+        segment = parsed.path.strip("/").split("/")[-1]
+        segment = segment.replace("-jobs", "").replace("-", " ").strip()
+        return segment or "(کل صفحه)"
+    except Exception:
+        return "؟"
+
+
+def search_source(source, on_progress=None):
+    """جستجو در یک منبع -return jobs. on_progress(url, keyword) قبل از هر fetch صدا زده می‌شود."""
     all_jobs = []
-    
-    for url in source.get("search_urls", [source["url"]]):
+    urls = source.get("search_urls", [source["url"]])
+
+    for i, url in enumerate(urls, 1):
+        keyword = _guess_keyword(url)
+        print(f"    🔎 [{i}/{len(urls)}] کلیدواژه: «{keyword}» ← {url}")
+        if on_progress:
+            on_progress(url, keyword)
+
         html = fetch_page(url)
         if html:
             jobs = extract_jobs_from_html(html, source)
+            print(f"       → {len(jobs)} آگهی احتمالی از این صفحه استخراج شد")
             all_jobs.extend(jobs)
-            # Be respectful to servers
-            time.sleep(0.5)
-    
+            time.sleep(0.5)  # Be respectful to servers
+        else:
+            print(f"       ⚠️ پاسخی از این صفحه دریافت نشد (شاید سایت مسدود کرده یا نیاز به جاوااسکریپت دارد)")
+
     return all_jobs
 
 
@@ -477,20 +592,25 @@ def main():
     
     applicants_config = get_applicants()
     print(f"  👥 {len(applicants_config)} متقاضی پیکربندی شده")
-    
+
+    all_sources = load_sources()
+    active_sources = [s for s in all_sources if s.get("enabled", True)]
+    skipped = len(all_sources) - len(active_sources)
+
     all_jobs = []
     crawl_log = []
-    
-    print(f"\n🔍 جستجو در {len(SEARCH_SOURCES)} منبع...")
-    
-    for idx, source in enumerate(SEARCH_SOURCES, 1):
-        print(f"  📡 {source['name']} ({source['country']}) - در حال بررسی...")
-        
+
+    print(f"\n🔍 جستجو در {len(active_sources)} منبع فعال"
+          + (f" ({skipped} منبع غیرفعال رد شد)" if skipped else "") + "...")
+
+    for idx, source in enumerate(active_sources, 1):
+        print(f"  📡 [{idx}/{len(active_sources)}] {source['name']} ({source['country']}) - در حال بررسی...")
+
         jobs = search_source(source)
         all_jobs.extend(jobs)
         
         status = "✅" if jobs else "⚠️"
-        print(f"    {status} {len(jobs)} آگهی یافت شد")
+        print(f"    {status} مجموعاً {len(jobs)} آگهی یافت شد از {source['name']}")
     
     # Remove duplicates based on title+company+source
     seen_keys = set()
