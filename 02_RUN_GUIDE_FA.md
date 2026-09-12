@@ -60,3 +60,37 @@
 - اولویت با کارفرمای واقعی است
 - گزارش‌ها به فارسی باشند
 - حداکثر ۵ فرصت برتر نمایش داده شود
+
+---
+
+## رفع خطای IMAP `AUTHENTICATIONFAILED`
+
+اگر هنگام تحلیل ایمیل خطای `AUTHENTICATIONFAILED` دیدید:
+
+1. رمز عبور Gmail را در `.env` بررسی کنید — باید **App Password** باشد، نه رمز اصلی
+2. App Password را از `myaccount.google.com/apppasswords` بسازید
+3. فاصله‌های داخل رمز مشکلی ایجاد نمی‌کند — اسکریپت خودکار حذف می‌کند
+4. اگر رمز قدیمی است، یک نسخه جدید بسازید (رمزهای حذف‌شده از دستگاه دیگر فوراً غیرفعال می‌شوند)
+
+> راهنمای کامل: `EMAIL_SETUP_GUIDE_FA.md`
+
+---
+
+## ابزارهای جدید (سپتامبر ۲۰۲۶)
+
+### بانک درخواست‌ها (Application Bank)
+
+```
+python application_tracker.py                    # مشاهده گزارش
+python application_tracker.py --add              # ثبت درخواست جدید
+python application_tracker.py --status MH-001 FOLLOW_UP   # تغییر وضعیت
+python application_tracker.py --followup MH-001  # ثبت پیگیری + مهلت ۷ روزه
+```
+
+### داشبورد وب
+
+```
+python web_ui.py    # سپس http://localhost:8080 را باز کنید
+```
+
+امکانات: اجرای پایپ‌لاین با یک کلیک، پنل جستجوی زنده، مشاهده گزارش‌ها و داشبوردها.

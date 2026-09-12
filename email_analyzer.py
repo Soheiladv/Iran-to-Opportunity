@@ -351,12 +351,21 @@ class EmailConnector:
         return False
     
     def disconnect(self):
+        """
+        بستن اتصال — فقط cleanup است، نباید نتیجه‌ی قبلاً به‌دست‌آمده را از بین ببرد.
+        سرور (مخصوصاً Gmail) گاهی اتصال را قبل از LOGOUT خودش قطع می‌کند؛
+        در آن حالت هم close() و هم logout() ممکن است خطای socket بدهند —
+        هر دو باید بی‌خطر نادیده گرفته شوند.
+        """
         if self.conn:
             try:
                 self.conn.close()
-            except:
+            except Exception:
                 pass
-            self.conn.logout()
+            try:
+                self.conn.logout()
+            except Exception:
+                pass  # اتصال احتمالاً از قبل توسط سرور بسته شده — بی‌ضرر است
 
 # ═══════════════════════════════════════════════════
 # EMAIL ANALYZER
@@ -801,6 +810,9 @@ def load_env_passwords():
             if line.startswith("EMAIL_PASSWORD_") and "=" in line:
                 key = line.split("=", 1)[0].strip()
                 val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                # Gmail App Passwords are shown as "xxxx xxxx xxxx xxxx" —
+                # IMAP only accepts the 16 letters without spaces.
+                val = val.replace(" ", "")
                 passwords[key] = val
     # Also map TOHID_1 / NEDA_1 style keys for backward compat
     config = load_config()
@@ -852,6 +864,13 @@ def analyze_single_account(account, passwords, days=30, limit=200):
         connector.connect()
     except imaplib.IMAP4.error as e:
         print(f"  ❌ خطای IMAP: {e}")
+        if "AUTHENTICATIONFAILED" in str(e):
+            print(f"     🔑 یعنی رمز وارد شده اشتباه است. راه‌حل:")
+            print(f"        1. به این آدرس برو: https://myaccount.google.com/apppasswords")
+            print(f"        2. احراز هویت دو مرحله‌ای باید فعال باشد (اگر نیست اول فعال کن)")
+            print(f"        3. یک App Password جدید بساز (نام: MigrationHunter)")
+            print(f"        4. رمز ۱۶ حرفی را در فایل .env جایگزین کن")
+            print(f"        5. اگر رمز قبلاً حذف/چرخانده شده، حتماً نسخه جدید بساز")
         return None
     except OSError as e:
         # شامل socket.gaierror (DNS)، ConnectionRefusedError، timeout و مشابه
@@ -864,7 +883,10 @@ def analyze_single_account(account, passwords, days=30, limit=200):
     # Search
     emails = connector.search_emails(days=days, limit=limit)
     print(f"  📩 {len(emails)} ایمیل یافت شد")
-    connector.disconnect()
+    try:
+        connector.disconnect()
+    except Exception as e:
+        print(f"  ⚠️ خطای جزئی موقع قطع اتصال (بی‌ضرر، نتیجه‌ی جستجو حفظ شد): {e}")
     
     if not emails:
         return None

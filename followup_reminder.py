@@ -5,7 +5,7 @@ MigrationHunter — یادآوری پیگیری ۷ روزه
 
 اجرا: python followup_reminder.py
 """
-import os, sys, json, io
+import os, sys, json, io, re
 from datetime import datetime, timedelta
 from config_loader import get_applicant_label
 
@@ -34,14 +34,84 @@ def load_emails():
         return json.load(f)
 
 # ═══════════════════════════════════════════════════
-# تشخیص ایمیل‌های نیاز به پیگیری
+# تشخیص خبرنامه‌ها و ایمیل‌های تبلیغاتی
 # ═══════════════════════════════════════════════════
+# دامنه‌های شناخته‌شده خبرنامه/جاب‌ایجنت (نه کارفرمای واقعی)
+NEWSLETTER_SENDERS = [
+    "hokify",          # جاب‌ایجنت اتریشی
+    "stepstone",       # جاب‌ایجنت آلمانی
+    "wayup",           # پلتفرم کارآموزی آمریکا
+    "canadavisa",      # خبرنامه مهاجرت CIC News
+    "jobagent",
+    "linkedin.com",
+    "indeed.com",
+    "glassdoor",
+    "mailchimp",
+    "sendgrid",
+    "campaign",
+    "newsletter",
+    "notify",
+    "no-reply",
+    "noreply",
+    "donotreply",
+]
+
+# الگوهای موضوعی خبرنامه (فقط زمانی فیلتر می‌شود که فرستنده هم مطابق باشد
+# یا این الگوها صریحاً تبلیغاتی باشند)
+NEWSLETTER_SUBJECT_PATTERNS = [
+    r"jobs?( could| might| die)? (können|passen|wären|sein)",  # hokify آلمانی
+    r"diese jobs", r"ein spannender job", r"dein neuer job",
+    r"dieser job", r"jobs, die zu dir passen",
+    r"you have a great chance", r"your cv is a great match",
+    r"closing soon, apply",
+    r"\b\d+ interviews were booked",
+    r"hidden\"? job market",
+    r"\bnewsletter\b", r"\bdigest\b",
+    r"sei dabei",
+]
+
+# خبرنامه‌های اطلاع‌رسانی مهاجرت — ارزش اطلاعاتی دارند ولی پاسخ کارفرما نیستند
+NEWSLETTER_INFO_PATTERNS = [
+    r"\bcanada (invites|expands|extends)\b",
+    r"\bregistration deadline\b",
+    r"\bexpress entry\b\b?\bdraw\b",
+]
+
+
+def is_newsletter(email):
+    """
+    تشخیص اینکه ایمیل، خبرنامه/تبلیغ جاب‌ایجنت است نه پاسخ واقعی کارفرما.
+    خروجی: (bool, دلیل)
+    """
+    sender = (email.get("from", "") or "").lower()
+    subject = (email.get("subject", "") or "").lower()
+
+    # ۱. دامنه/نام فرستنده در لیست سیاه خبرنامه‌ها
+    for name in NEWSLETTER_SENDERS:
+        if name in sender:
+            return True, f"فرستنده خبرنامه/جاب‌ایجنت: {name}"
+
+    # ۲. الگوهای صریح تبلیغاتی در موضوع
+    for pat in NEWSLETTER_SUBJECT_PATTERNS:
+        if re.search(pat, subject, re.I):
+            return True, f"موضوع تبلیغاتی"
+
+    return False, ""
+
+
 def find_needs_followup(data):
-    """پیدا کردن ایمیل‌هایی که نیاز به پیگیری دارند"""
+    """پیدا کردن ایمیل‌هایی که نیاز به پیگیری دارند (خبرنامه‌ها فیلتر می‌شوند)"""
     emails = data.get("emails", [])
     followup_needed = []
+    newsletters = []
     
     for e in emails:
+        # فیلتر خبرنامه‌ها: پاسخ کارفرما نیستند، پیگیری ندارند
+        is_nl, nl_reason = is_newsletter(e)
+        if is_nl:
+            newsletters.append({**e, "newsletter_reason": nl_reason})
+            continue
+        
         cat = e.get("category", "")
         
         # فقط ایمیل‌های شغلی که نیاز به پاسخ دارند
@@ -83,18 +153,19 @@ def find_needs_followup(data):
     # مرتب‌سازی بر اساس اولویت و تاریخ
     followup_needed.sort(key=lambda x: -x["days_since"])
     
-    return followup_needed
+    return followup_needed, newsletters
 
 # ═══════════════════════════════════════════════════
 # تولید گزارش
 # ═══════════════════════════════════════════════════
-def generate_report(followup_list, data):
+def generate_report(followup_list, newsletters, data):
     """تولید گزارش فارسی"""
     lines = []
     lines.append(f"# یادآوری پیگیری ایمیل‌ها")
     lines.append(f"")
     lines.append(f"**تاریخ:** {DATE_STR}")
     lines.append(f"**ایمیل‌های نیاز به پیگیری:** {len(followup_list)}")
+    lines.append(f"**خبرنامه‌های فیلترشده:** {len(newsletters)}")
     lines.append(f"")
     lines.append(f"---")
     lines.append(f"")
@@ -141,6 +212,19 @@ def generate_report(followup_list, data):
         
         lines.append(f"")
     
+    # خبرنامه‌های فیلترشده (شفافیت: چیزی مخفی نمی‌شود)
+    if newsletters:
+        lines.append(f"## خبرنامه‌های فیلترشده (پاسخ کارفرما نیستند)")
+        lines.append(f"")
+        lines.append(f"| # | تاریخ | فرستنده | موضوع | دلیل فیلتر |")
+        lines.append(f"|---|-------|---------|-------|------------|")
+        for idx, e in enumerate(newsletters, 1):
+            sender = e.get("from", "").split("<")[0].strip().strip('"')[:28]
+            subject = e.get("subject", "")[:45]
+            reason = e.get("newsletter_reason", "")
+            lines.append(f"| {idx} | {e.get('date', '')[:10]} | {sender} | {subject} | {reason} |")
+        lines.append(f"")
+    
     lines.append(f"---")
     lines.append(f"")
     lines.append(f"> **آخرین بررسی:** {DATE_STR}")
@@ -162,13 +246,14 @@ def main():
         return
     
     print(f"\n🔍 بررسی ایمیل‌های بی‌پاسخ...")
-    followup_list = find_needs_followup(data)
+    followup_list, newsletters = find_needs_followup(data)
     
     print(f"  📩 {len(followup_list)} ایمیل نیاز به پیگیری")
+    print(f"  🗑️ {len(newsletters)} خبرنامه فیلتر شد")
     
     # گزارش
     print(f"\n📄 تولید گزارش...")
-    report = generate_report(followup_list, data)
+    report = generate_report(followup_list, newsletters, data)
     
     os.makedirs(OUT, exist_ok=True)
     fp = os.path.join(OUT, "FOLLOWUP_REMINDER.md")

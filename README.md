@@ -2,7 +2,7 @@
 
 # 🎯 MigrationHunter
 
-### International Job Hunting Engine for Iranian Professionals
+### موتور هوشمند کاریابی بین‌المللی برای متخصصان ایرانی
 
 <div align="center">
 
@@ -15,132 +15,132 @@
 
 ---
 
-## 🔗 Quick Links
+## 🔗 لینک‌های سریع
 
-| Link | Purpose |
-|------|---------|
-| **https://myaccount.google.com/apppasswords** | **Create Gmail App Password** |
-| https://myaccount.google.com/security | Enable 2FA |
-| https://mail.google.com/mail/u/0/#settings/fwdandpop | Enable IMAP in Gmail |
-
----
-
-## 📖 About
-
-**MigrationHunter** is an intelligent international job hunting system that:
-
-- 🔍 Automatically searches global job boards
-- 🤖 Uses AI API (OpenAI/Gemini) for intelligent analysis
-- 🎯 Ranks opportunities based on applicant profiles
-- 📊 Generates Excel dashboard with charts & conditional formatting
-- 📧 Creates personalized cover letters & application emails
-- 📤 Sends emails with user confirmation
-- 🧠 Learns from previous searches & ranks successful sources
-- 📝 Generates daily Persian reports
-
-**End Goal:**
-
-```
-Real Job → Real Employer → Job Offer
-→ Work Visa → Legal Relocation → Family Migration
-```
+| لینک | هدف |
+|------|------|
+| **https://myaccount.google.com/apppasswords** | **ساخت رمز عبور اپلیکیشن جیمیل** |
+| https://myaccount.google.com/security | فعال‌سازی احراز هویت دو مرحله‌ای |
+| https://mail.google.com/mail/u/0/#settings/fwdandpop | فعال‌سازی IMAP در جیمیل |
 
 ---
 
-## 🏗️ Architecture
+## 📖 درباره پروژه
+
+**MigrationHunter** یک سیستم هوشمند کاریابی بین‌المللی است که:
+
+- 🔍 به‌صورت خودکار در سایت‌های کاریابی جهانی جستجو می‌کند
+- 🤖 از API هوش مصنوعی (OpenAI/Gemini) برای تحلیل هوشمند استفاده می‌کند
+- 🎯 فرصت‌ها را بر اساس پروفایل متقاضی رتبه‌بندی می‌کند
+- 📊 داشبورد اکسل با نمودارها و قالب‌بندی شرطی تولید می‌کند
+- 📧 نامه‌های پوش و ایمیل‌های درخواست شخصی‌سازی شده ایجاد می‌کند
+- 📤 ایمیل‌ها را با تأیید کاربر ارسال می‌کند
+- 🧠 از جستجوهای قبلی یاد می‌گیرد و منابع موفق را رتبه‌بندی می‌کند
+- 📝 گزارش‌های روزانه فارسی تولید می‌کند
+
+**هدف نهایی:**
+
+```
+کار واقعی → کارفرمای واقعی → پیشنهاد شغلی
+→ ویزای کاری → مهاجرت قانونی → مهاجرت خانوادگی
+```
+
+---
+
+## 🏗️ معماری سیستم
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│  Collection     │ →  │  AI Analysis     │ →  │  Output         │
-│  (Web Scraper)  │    │  (Job Analyzer)  │    │  (Excel + MD)   │
+│  جمع‌آوری       │ →  │  تحلیل AI       │ →  │  خروجی          │
+│  (وب اسکرپر)    │    │  (تحلیلگر شغل)  │    │  (اکسل + MD)    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
         ↓                       ↓                       ↓
    ┌─────────┐           ┌──────────┐           ┌──────────┐
-   │Requests │           │Scoring   │           │openpyxl  │
-   │BeautifulSoup│      │Matching  │           │Markdown  │
-   │HTML Parse│         │Learning  │           │Reports   │
+   │Requests │           │امتیازدهی │           │openpyxl  │
+   │BeautifulSoup│      │ تطبیق    │           │Markdown  │
+   │تحلیل HTML│        │یادگیری   │           │گزارش‌ها  │
    └─────────┘           └──────────┘           └──────────┘
 ```
 
-### Three Main Layers
+### سه لایه اصلی
 
-| Layer | Function | Tools |
-|-------|----------|-------|
-| **Collection** | Read sites & extract jobs | Python + requests |
-| **Analysis** | Scoring, matching, learning | Python + AI API (OpenAI/Gemini) |
-| **Output** | Excel + Persian reports + emails | openpyxl + Markdown + SMTP |
+| لایه | عملکرد | ابزارها |
+|-------|----------|---------|
+| **جمع‌آوری** | خواندن سایت‌ها و استخراج مشاغل | Python + requests |
+| **تحلیل** | امتیازدهی، تطبیق، یادگیری | Python + AI API (OpenAI/Gemini) |
+| **خروجی** | اکسل + گزارش‌های فارسی + ایمیل | openpyxl + Markdown + SMTP |
 
 ---
 
-## 📁 Project Structure
+## 📁 ساختار پروژه
 
 ```
 MigrationHunter/
 │
-├── 📄 README.md                    ← This file
-├── 📄 EXECUTION_GUIDE.md           ← Execution guide
-├── 🐍 setup.py                     ← Dynamic setup (creates config.json + .env)
-├── 🐍 run.py                       ← Main pipeline runner
-├── 🐍 email_analyzer.py            ← Gmail scanner
-├── 🐍 email_dashboard.py           ← Email analysis Excel
-├── 🐍 job_crawler.py               ← Job board crawler
-├── 🐍 build_dashboard.py           ← Master dashboard builder
-├── 🐍 followup_reminder.py         ← Follow-up tracker
-├── 🐍 config_loader.py             ← Dynamic config loader
-├── 📄 .env.example                  ← Environment template
-├── 📄 requirements.txt              ← Dependencies
-├── 📄 .gitignore                    ← Protects personal data
+├── 📄 README.md                    ← این فایل
+├── 📄 EXECUTION_GUIDE.md           ← راهنمای اجرا
+├── 🐍 setup.py                     ← راه‌اندازی پویا (ایجاد config.json + .env)
+├── 🐍 run.py                       ← اجرای اصلی پایپ‌لاین
+├── 🐍 email_analyzer.py            ← اسکنر جیمیل
+├── 🐍 email_dashboard.py           ← داشبورد تحلیل ایمیل اکسل
+├── 🐍 job_crawler.py               ← خزنده سایت‌های کاریابی
+├── 🐍 build_dashboard.py           ← سازنده داشبورد اصلی
+├── 🐍 followup_reminder.py         ← پیگیری درخواست‌ها
+├── 🐍 config_loader.py             ← بارگذار پویای تنظیمات
+├── 📄 .env.example                  ← الگوی متغیرهای محیطی
+├── 📄 requirements.txt              ← وابستگی‌ها
+├── 📄 .gitignore                    ← محافظت از داده‌های شخصی
 │
-├── 📂 config.json                   ← Main config (applicants, emails, linkedins)
-├── 📂 .env                          ← Secrets (never commit!)
+├── 📂 config.json                   ← تنظیمات اصلی (متقاضیان، ایمیل‌ها، لینکدین‌ها)
+├── 📂 .env                          ← رمزها (هرگز کامیت نکنید!)
 │
 ├── 📂 profiles/
-│   ├── APPLICANT1_PROFILE.md       ← Profile template
-│   └── APPLICANT2_PROFILE.md       ← Profile template
+│   ├── APPLICANT1_PROFILE.md       ← الگوی پروفایل
+│   └── APPLICANT2_PROFILE.md       ← الگوی پروفایل
 │
 ├── 📂 memory/
-│   ├── SOURCE_BANK.md              ← Source bank (auto-learning)
-│   ├── EMPLOYER_BANK.md            ← Employer bank
-│   ├── JOB_BANK.md                 ← Job bank
-│   ├── RECRUITER_BANK.md           ← Recruiter bank
-│   ├── APPLICATION_BANK.md         ← Application bank
-│   ├── VISA_BANK.md                ← Visa info bank
-│   ├── REGISTRATION_BANK.md        ← Registration bank
-│   └── SEARCH_HISTORY.md           ← Search history
+│   ├── SOURCE_BANK.md              ← بانک منابع (یادگیری خودکار)
+│   ├── EMPLOYER_BANK.md            ← بانک کارفرمایان
+│   ├── JOB_BANK.md                 ← بانک مشاغل
+│   ├── RECRUITER_BANK.md           ← بانک کاریابی‌ها
+│   ├── APPLICATION_BANK.md         ← بانک درخواست‌ها
+│   ├── VISA_BANK.md                ← بانک اطلاعات ویزا
+│   ├── REGISTRATION_BANK.md        ← بانک ثبت‌نام حرفه‌ای
+│   └── SEARCH_HISTORY.md           ← تاریخچه جستجو
 │
 ├── 📂 input/
-│   └── LATEST_SEARCH.md            ← Latest search input
+│   └── LATEST_SEARCH.md            ← آخرین ورودی جستجو
 │
 ├── 📂 output/
-│   ├── TOP_JOBS.md                 ← Top opportunities
-│   ├── EMPLOYERS_TO_CONTACT.md     ← Employers to contact
-│   ├── RECRUITMENT_AGENCIES.md     ← Recruitment agencies
-│   ├── GOVERNMENT_SOURCES.md       ← Government sources
-│   ├── APPLICATIONS_TO_PREPARE.md  ← Applications to prepare
-│   ├── LANGUAGE_REGISTRATION.md    ← Language & registration status
-│   ├── SOURCE_BANK_UPDATE.md       ← Source bank updates
-│   ├── EMAILS_TO_SEND.md           ← Emails ready to send
-│   └── DAILY_ACTIONS.md            ← Top 5 daily actions
+│   ├── TOP_JOBS.md                 ← برترین فرصت‌ها
+│   ├── EMPLOYERS_TO_CONTACT.md     ← کارفرمایان برای تماس
+│   ├── RECRUITMENT_AGENCIES.md     ← آژانس‌های کاریابی
+│   ├── GOVERNMENT_SOURCES.md       ← منابع دولتی
+│   ├── APPLICATIONS_TO_PREPARE.md  ← درخواست‌ها برای آماده‌سازی
+│   ├── LANGUAGE_REGISTRATION.md    ← وضعیت زبان و ثبت‌نام
+│   ├── SOURCE_BANK_UPDATE.md       ← به‌روزرسانی بانک منابع
+│   ├── EMAILS_TO_SEND.md           ← ایمیل‌های آماده ارسال
+│   └── DAILY_ACTIONS.md            ← ۵ اقدام برتر روزانه
 │
 ├── 📂 dashboard/
-│   └── MigrationHunter_Dashboard_YYYYMMDD_HHMM.xlsx  ← Master dashboard
+│   └── MigrationHunter_Dashboard_YYYYMMDD_HHMM.xlsx  ← داشبورد اصلی
 │
 └── 📂 dashboard/archive/
-    └── [Previous dashboard versions]
+    └── [نسخه‌های قبلی داشبورد]
 ```
 
 ---
 
-## 🚀 Installation & Usage
+## 🚀 نصب و استفاده
 
-### Prerequisites
+### پیش‌نیازها
 
 ```bash
 Python 3.10+
 pip install -r requirements.txt
 ```
 
-### Install
+### نصب
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/MigrationHunter.git
@@ -148,42 +148,42 @@ cd MigrationHunter
 pip install -r requirements.txt
 ```
 
-### Quick Start
+### شروع سریع
 
 ```bash
-# 1. Initial setup (interactive)
+# ۱. راه‌اندازی اولیه (تعاملی)
 python setup.py
 
-# 2. Test email connection
+# ۲. تست اتصال ایمیل
 python email_analyzer.py --dry-run
 
-# 3. Run full pipeline (5 steps)
+# ۳. اجرای کامل پایپ‌لاین (۵ مرحله)
 python run.py
 ```
 
-### What `run.py` Does
+### عملکرد `run.py`
 
-| Step | Script | Description | Output |
+| مرحله | اسکریپت | توضیحات | خروجی |
 |------|--------|-------------|--------|
-| 1 | `email_analyzer.py` | Scans last 30 days of Gmail | `memory/EMAIL_ANALYSIS.json` |
-| 2 | `email_dashboard.py` | Creates email analysis Excel | `dashboard/Email_Analysis_*.xlsx` |
-| 3 | `job_crawler.py` | Searches 9 job boards | `dashboard/Job_Crawler_*.xlsx` |
-| 4 | `followup_reminder.py` | Generates follow-up report | `output/FOLLOWUP_REMINDER.md` |
-| 5 | `build_dashboard.py` | Builds 13-sheet master dashboard | `dashboard/MigrationHunter_Dashboard_*.xlsx` |
+| ۱ | `email_analyzer.py` | اسکن ۳۰ روز اخیر جیمیل | `memory/EMAIL_ANALYSIS.json` |
+| ۲ | `email_dashboard.py` | ایجاد اکسل تحلیل ایمیل | `dashboard/Email_Analysis_*.xlsx` |
+| ۳ | `job_crawler.py` | جستجو در ۹ سایت کاریابی | `dashboard/Job_Crawler_*.xlsx` |
+| ۴ | `followup_reminder.py` | تولید گزارش پیگیری | `output/FOLLOWUP_REMINDER.md` |
+| ۵ | `build_dashboard.py` | ساخت داشبورد اصلی ۱۳ برگه‌ای | `dashboard/MigrationHunter_Dashboard_*.xlsx` |
 
-### AI API Configuration (Optional)
+### تنظیمات API هوش مصنوعی (اختیاری)
 
 ```bash
 # OpenAI
 AI_PROVIDER=openai
 AI_API_KEY=your_openai_api_key
 
-# Or Gemini
+# یا Gemini
 AI_PROVIDER=gemini
 AI_API_KEY=your_gemini_api_key
 ```
 
-### Email Configuration (Optional)
+### تنظیمات ایمیل (اختیاری)
 
 ```bash
 SMTP_HOST=smtp.gmail.com
@@ -194,18 +194,18 @@ SMTP_PASSWORD=your_app_password
 
 ---
 
-## 👥 Applicant Profiles (Dynamic)
+## 👥 پروفایل متقاضیان (پویا)
 
-Run `python setup.py` to create profiles. Each applicant gets:
+اجرای `python setup.py` برای ایجاد پروفایل‌ها. هر متقاضی شامل موارد زیر است:
 
-- **Name** (English + Persian)
-- **Profession** & **Keywords** (auto-generated)
-- **Gender** (for emoji/color)
-- **Language Levels** (English, German)
-- **Multiple Emails** (each with App Password)
-- **Multiple LinkedIn Profiles**
+- **نام** (انگلیسی + فارسی)
+- **حرفه** و **کلمات کلیدی** (تولید خودکار)
+- **جنسیت** (برای ایموجی/رنگ)
+- **سطوح زبان** (انگلیسی، آلمانی)
+- **ایمیل‌های متعدد** (هر کدام با رمز عبور اپلیکیشن)
+- **پروفایل‌های لینکدین متعدد**
 
-Example structure in `config.json`:
+ساختار نمونه در `config.json`:
 
 ```json
 {
@@ -229,268 +229,268 @@ Example structure in `config.json`:
 
 ---
 
-## 🌍 Target Countries
+## 🌍 کشورهای هدف
 
-### Tier 1 — Primary Focus
+### سطح ۱ — اولویت اصلی
 
-| Country | Key Pathways |
+| کشور | مسیرهای اصلی |
 |---------|--------------|
-| 🇳🇿 **New Zealand** | Green List, AEWV, Accredited Employer |
-| 🇩🇪 **Germany** | EU Blue Card, Skilled Worker Visa (§18a) |
-| 🇦🇺 **Australia** | TSS 482 Visa, Employer Sponsorship |
-| 🇨🇦 **Canada** | Express Entry, Atlantic Immigration, LMIA |
+| 🇳🇿 **نیوزیلند** | Green List, AEWV, Accredited Employer |
+| 🇩🇪 **آلمان** | EU Blue Card, Skilled Worker Visa (§18a) |
+| 🇦🇺 **استرالیا** | TSS 482 Visa, Employer Sponsorship |
+| 🇨🇦 **کانادا** | Express Entry, Atlantic Immigration, LMIA |
 
-### Tier 2 — European Options
+### سطح ۲ — گزینه‌های اروپایی
 
-| Country | Key Pathways |
+| کشور | مسیرهای اصلی |
 |---------|--------------|
-| 🇦🇹 Austria | Red-White-Red Card |
-| 🇮🇪 Ireland | Critical Skills Visa |
-| 🇳🇱 Netherlands | Highly Skilled Migrant |
-| 🇸🇪 Sweden | Work Permit (Healthcare/IT) |
-| 🇳🇴 Norway | Skilled Worker |
-| 🇩🇰 Denmark | Positive List / Pay Limit |
-| 🇫🇮 Finland | Residence Permit (Specialist) |
-| 🇬🇧 UK | Health & Care Visa / Skilled Worker |
-| 🇨🇭 Switzerland | Work Permit |
-| 🇧🇪 Belgium | EU Blue Card |
-| 🇵🇹 Portugal | D1 Work Visa |
-| 🇪🇸 Spain | EU Blue Card |
-| 🇮🇹 Italy | Decreto Flussi |
-| 🇫🇷 France | Talent Passport |
-| 🇵🇱 Poland | Work Permit (IT/Healthcare) |
-| 🇨🇿 Czechia | EU Blue Card |
-| 🇭🇺 Hungary | White Card |
-| 🇷🇴 Romania | EU Blue Card |
-| 🇭🇷 Croatia | EU Blue Card |
+| 🇦🇹 اتریش | Red-White-Red Card |
+| 🇮🇪 ایرلند | Critical Skills Visa |
+| 🇳🇱 هلند | Highly Skilled Migrant |
+| 🇸🇪 سوئد | Work Permit (Healthcare/IT) |
+| 🇳🇴 نروژ | Skilled Worker |
+| 🇩🇰 دانمارک | Positive List / Pay Limit |
+| 🇫🇮 فنلاند | Residence Permit (Specialist) |
+| 🇬🇧 بریتانیا | Health & Care Visa / Skilled Worker |
+| 🇨🇭 سوئیس | Work Permit |
+| 🇧🇪 بلژیک | EU Blue Card |
+| 🇵🇹 پرتغال | D1 Work Visa |
+| 🇪🇸 اسپانیا | EU Blue Card |
+| 🇮🇹 ایتالیا | Decreto Flussi |
+| 🇫🇷 فرانسه | Talent Passport |
+| 🇵🇱 لهستان | Work Permit (IT/Healthcare) |
+| 🇨🇿 چک | EU Blue Card |
+| 🇭🇺 مجارستان | White Card |
+| 🇷🇴 رومانی | EU Blue Card |
+| 🇭🇷 کرواسی | EU Blue Card |
 
 ---
 
-## 📊 Scoring System
+## 📊 سیستم امتیازدهی
 
-### Path Fit Score (0-100)
+### امتیاز تناسب مسیر (۰-۱۰۰)
 
-| Criterion | Weight | Description |
+| معیار | وزن | توضیحات |
 |-----------|--------|-------------|
-| **Professional Fit** | 20% | Job matches experience & skills |
-| **Migration Fit** | 20% | Visa pathway & legal requirements |
-| **Language Fit** | 15% | Employer/visa/registration language needs |
-| **Sponsorship Fit** | 25% | Likelihood of employer sponsorship |
-| **Family Fit** | 10% | Spouse/children relocation feasibility |
-| **Speed** | 10% | Estimated processing time |
+| **تناسب حرفه‌ای** | ۲۰٪ | تطابق شغل با تجربه و مهارت‌ها |
+| **تناسب مهاجرتی** | ۲۰٪ | مسیر ویزا و الزامات قانونی |
+| **تناسب زبانی** | ۱۵٪ | نیازهای زبانی کارفرما/ویزا/ثبت‌نام |
+| **تناسب اسپانسرشیپ** | ۲۵٪ | احتمال حمایت مالی کارفرما |
+| **تناسب خانوادگی** | ۱۰٪ | امکان جابجایی همسر/فرزندان |
+| **سرعت** | ۱۰٪ | زمان تخمینی پردازش |
 
-### Dashboard Color Coding
+### رنگ‌بندی داشبورد
 
-| Color | Meaning |
+| رنگ | معنی |
 |-------|---------|
-| 🟢 Green | Verified / Ready / High Score |
-| 🟡 Yellow | Probable / Medium Score |
-| 🟠 Orange | Possible / Low Score |
-| 🔴 Red | Expired / Rejected |
-| 🔵 Blue | New / Identified |
-| ⚪ Gray | Unknown |
+| 🟢 سبز | تأیید شده / آماده / امتیاز بالا |
+| 🟡 زرد | محتمل / امتیاز متوسط |
+| 🟠 نارنجی | ممکن / امتیاز پایین |
+| 🔴 قرمز | منقضی / رد شده |
+| 🔵 آبی | جدید / شناسایی شده |
+| ⚪ خاکستری | نامشخص |
 
 ---
 
-## 🧠 Learning System
+## 🧠 سیستم یادگیری
 
-System learns from previous searches:
+سیستم از جستجوهای قبلی یاد می‌گیرد:
 
-### Source Score Increases
+### افزایش امتیاز منبع
 
-| Event | Score |
+| رویداد | امتیاز |
 |-------|-------|
-| Valid job found | +2 |
-| Employer verified | +3 |
-| International hiring confirmed | +4 |
-| Sponsorship confirmed | +5 |
-| Application sent | +2 |
-| Employer response | +5 |
-| Interview | +8 |
-| Job offer | +15 |
+| یافتن شغل معتبر | +۲ |
+| تأیید کارفرما | +۳ |
+| تأیید استخدام بین‌المللی | +۴ |
+| تأیید اسپانسرشیپ | +۵ |
+| ارسال درخواست | +۲ |
+| پاسخ کارفرما | +۵ |
+| مصاحبه | +۸ |
+| پیشنهاد شغلی | +۱۵ |
 
-### Source Score Decreases
+### کاهش امتیاز منبع
 
-| Event | Score |
+| رویداد | امتیاز |
 |-------|-------|
-| Job expired | -1 |
-| Duplicate | -1 |
-| Invalid job | -3 |
-| Fake sponsorship | -10 |
-| Fake employer | -10 |
-| Scam detected | -20 |
-| Verified scam | -50 |
+| منقضی شدن شغل | -۱ |
+| تکراری | -۱ |
+| شغل نامعتبر | -۳ |
+| اسپانسرشیپ جعلی | -۱۰ |
+| کارفرمای جعلی | -۱۰ |
+| تشخیص کلاهبرداری | -۲۰ |
+| کلاهبرداری تأیید شده | -۵۰ |
 
-> ⚠️ **Note:** Historical score only affects search priority. Every new opportunity must be re-verified.
+> ⚠️ **نکته:** امتیاز تاریخی فقط بر اولویت جستجو تأثیر می‌گذارد. هر فرصت جدید باید مجدداً تأیید شود.
 
 ---
 
-## 📧 Email & Cover Letters
+## 📧 ایمیل و نامه‌های پوش
 
-### Core Rule
+### قاعده اصلی
 
 ```
-AI generates email
+AI ایمیل را تولید می‌کند
 ↓
-User reviews content
+کاربر محتوا را بررسی می‌کند
 ↓
-User confirms (y/N)
+کاربر تأیید می‌کند (y/N)
 ↓
-Send / Save / Copy
+ارسال / ذخیره / کپی
 ```
 
-**Never sends without explicit user confirmation.**
+**هرگز بدون تأیید صریح کاربر ارسال نمی‌شود.**
 
-### Usage
+### استفاده
 
 ```bash
-# Generate emails with AI
+# تولید ایمیل با AI
 python run_auto.py --ai --email
 
-# Interactive send
+# ارسال تعاملی
 python run_auto.py --interactive-email
 ```
 
-### Send Options
+### گزینه‌های ارسال
 
-| Option | Description |
+| گزینه | توضیحات |
 |--------|-------------|
-| 1 | Send via SMTP (requires config) |
-| 2 | Save as text file |
-| 3 | Copy to clipboard |
-| 4 | Cancel |
+| ۱ | ارسال از طریق SMTP (نیاز به تنظیمات) |
+| ۲ | ذخیره به‌عنوان فایل متنی |
+| ۳ | کپی به کلیپ‌بورد |
+| ۴ | لغو |
 
 ---
 
-## 📋 Core Rules
+## 📋 قوانین اصلی
 
-### Language Rule — Search Never Stops
+### قاعده زبان — جستجو هرگز متوقف نمی‌شود
 
 ```
-❌ Old: "No IELTS 7 → Discard opportunity"
-✅ New: "Track opportunity → Language = verification step"
+❌ قدیم: "بدون آیلتس ۷ → رد فرصت"
+✅ جدید: "ردیابی فرصت → زبان = مرحله تأیید"
 ```
 
-**Language is not a pre-filter.** Only a final verification step.
+**زبان یک پیش‌فیلتر نیست.** فقط یک مرحله تأیید نهایی است.
 
-### No Fabrication
+### بدون جعل اطلاعات
 
-- Never create fake jobs
-- If unknown: mark **UNKNOWN**
-- Priority to official sources & real employers
+- هرگز شغل جعلی ایجاد نکنید
+- اگر مشخص نیست: **نامشخص** درج کنید
+- اولویت با منابع رسمی و کارفرمایان واقعی
 
-### No Memory Deletion
+### بدون حذف حافظه
 
-- No history deleted
-- Old info marked: OUTDATED / EXPIRED
+- تاریخچه حذف نمی‌شود
+- اطلاعات قدیمی علامت‌گذاری: منقضی / قدیمی
 
-### Anti-Scam Protection
+### محافظت در برابر کلاهبرداری
 
-Flag immediately:
-- Guaranteed job offers
-- Guaranteed visas
-- Payment for job offers
-- WhatsApp/Telegram only communication
-- Pressure for upfront payment
+فوراً پرچم بزنید:
+- پیشنهادات شغلی تضمینی
+- ویزاهای تضمینی
+- پرداخت برای پیشنهاد شغلی
+- ارتباط فقط از طریق WhatsApp/Telegram
+- فشار برای پرداخت اولیه
 
 ---
 
-## 📊 Master Dashboard (13 Sheets)
+## 📊 داشبورد اصلی (۱۳ برگه)
 
-| Sheet | Title | Content |
+| برگه | عنوان | محتوا |
 |-------|-------|---------|
-| 01 | **Dashboard** | KPI cards, country/applicant breakdown, Top 5 |
-| 02 | **Opportunities** | Full table with filters |
-| 03+ | **Applicant — Profession** | Per-applicant opportunity sheets (dynamic) |
-| 05 | **Employers** | Verified employer bank with emails |
-| 06 | **Emails** | Ready-to-send email list |
-| 07 | **Applications** | Application pipeline tracker |
-| 08 | **Follow-up** | 7-day follow-up tracker |
-| 09 | **Visa** | Visa requirements per country |
-| 10 | **Registration** | Professional registration pathways |
-| 11 | **Evidence** | Evidence scoring matrix |
-| 12 | **History** | Search history log |
-| 13 | **Email Analysis** | Email category statistics |
+| ۰۱ | **داشبورد** | کارت‌های KPI، تفکیک کشور/متقاضی، ۵ برتر |
+| ۰۲ | **فرصت‌ها** | جدول کامل با فیلترها |
+| ۰۳+ | **متقاضی — حرفه** | برگه فرصت‌های هر متقاضی (پویا) |
+| ۰۵ | **کارفرمایان** | بانک کارفرمایان تأیید شده با ایمیل |
+| ۰۶ | **ایمیل‌ها** | لیست ایمیل‌های آماده ارسال |
+| ۰۷ | **درخواست‌ها** | پیگیری خط لوله درخواست‌ها |
+| ۰۸ | **پیگیری** | پیگیری ۷ روزه |
+| ۰۹ | **ویزا** | الزامات ویزا بر هر کشور |
+| ۱۰ | **ثبت‌نام** | مسیرهای ثبت‌نام حرفه‌ای |
+| ۱۱ | **مدرک** | ماتریکس امتیازدهی مدارک |
+| ۱۲ | **تاریخچه** | گزارش تاریخچه جستجو |
+| ۱۳ | **تحلیل ایمیل** | آمار دسته‌بندی ایمیل‌ها |
 
-### Formatting
+### قالب‌بندی
 
-- **Fonts:** B Mitra (Persian) + Times New Roman (English)
-- **Direction:** RTL (Right-to-Left)
-- **Conditional formatting:** Green/Yellow/Red based on decision
-- **Freeze panes:** Headers always visible
-- **Auto-filter:** All tables filterable
+- **فونت‌ها:** B Mitra (فارسی) + Times New Roman (انگلیسی)
+- **جهت:** راست به چپ (RTL)
+- **قالب‌بندی شرطی:** سبز/زرد/قرمز بر اساس تصمیم
+- **فیکس پن‌ها:** هدرها همیشه مشاهده می‌شوند
+- **فیلتر خودکار:** تمام جدول‌ها قابل فیلتر هستند
 
 ---
 
-## 🔧 Available Commands
+## 🔧 دستورات موجود
 
 ```bash
-# Full pipeline
+# پایپ‌لاین کامل
 python run.py
 
-# Test email only
+# فقط تست ایمیل
 python email_analyzer.py --dry-run
 
-# Email analysis only
+# فقط تحلیل ایمیل
 python email_dashboard.py
 
-# Job search only
+# فقط جستجوی شغل
 python job_crawler.py
 
-# Follow-up reminder only
+# فقط یادآوری پیگیری
 python followup_reminder.py
 
-# Dashboard only
+# فقط داشبورد
 python build_dashboard.py
 
-# Re-run setup (add/modify applicants)
+# اجرای مجدد راه‌اندازی (افزوده/تغییر متقاضیان)
 python setup.py
 ```
 
 ---
 
-## 🔒 Privacy
+## 🔒 حریم خصوصی
 
-- Personal data stored locally only
-- No data sent to external servers (unless user requests AI analysis)
-- Emails sent only with explicit user confirmation
-- `.env` and `config.json` are gitignored
-
----
-
-## 🤝 Contributing
-
-Designed for personal use but contributions welcome:
-
-1. Fork
-2. Create branch
-3. Submit Pull Request
+- داده‌های شخصی فقط به‌صورت محلی ذخیره می‌شوند
+- هیچ داده‌ای به سرورهای خارجی ارسال نمی‌شود (مگر با درخواست کاربر برای تحلیل AI)
+- ایمیل‌ها فقط با تأیید صریح کاربر ارسال می‌شوند
+- `.env` و `config.json` در gitignore قرار دارند
 
 ---
 
-## 📜 License
+## 🤝 مشارکت
 
-MIT License — Free use with attribution
+برای استفاده شخصی طراحی شده اما مشارکت خوشامد است:
+
+۱. Fork
+۲. ایجاد شاخه
+۳. ارسال Pull Request
 
 ---
 
-## 📞 Contact
+## 📜 مجوز
+
+MIT License — استفاده آزاد با ذکر منبع
+
+---
+
+## 📞 تماس
 
 **GitHub:** [MigrationHunter](https://github.com/YOUR_USERNAME/MigrationHunter)
-**Issues:** [GitHub Issues](https://github.com/YOUR_USERNAME/MigrationHunter/issues)
+**مشکلات:** [GitHub Issues](https://github.com/YOUR_USERNAME/MigrationHunter/issues)
 
 ---
 
 <div align="center">
 
-### 🎯 Mission
+### 🎯 مأموریت
 
 ```
-Real Job → Real Employer → Job Offer
-→ Work Visa → Legal Relocation → Family Migration
+کار واقعی → کارفرمای واقعی → پیشنهاد شغلی
+→ ویزای کاری → مهاجرت قانونی → مهاجرت خانوادگی
 ```
 
-**Every job link is a step closer to family.**
+**هر لینک شغلی یک قدم به خانواده نزدیک‌تر است.**
 
 </div>
 

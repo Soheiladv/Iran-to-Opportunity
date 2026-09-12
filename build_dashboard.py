@@ -1032,6 +1032,98 @@ def build_sheet_13_email_analysis(wb, data):
     freeze(ws, "A2")
 
 
+def build_sheet_14_application_bank(wb):
+    """بانک درخواست‌های واقعی — از APPLICATION_BANK.json (خروجی application_tracker.py)"""
+    import json
+    ws = wb.create_sheet("14 بانک درخواست‌ها")
+    rtl(ws)
+
+    bank_file = os.path.join(MEM, "APPLICATION_BANK.json")
+    if not os.path.exists(bank_file):
+        wc(ws, 1, 1, "بانک درخواست‌ها — داده‌ای موجود نیست (application_tracker.py را اجرا کنید)",
+           font=fa(sz=12, bold=True, color=C_GRAY))
+        return
+
+    with open(bank_file, "r", encoding="utf-8") as f:
+        bank = json.load(f)
+    apps = bank.get("applications", [])
+    today = datetime.now().date()
+
+    wc(ws, 1, 1, f"بانک درخواست‌های واقعی — {len(apps)} درخواست — {DATE_STR}",
+       font=fa(sz=14, bold=True, color=C_DARK))
+    ws.merge_cells("A1:J1")
+
+    # KPI cards
+    n_sent = sum(1 for a in apps if a.get("status") in ("SENT", "FOLLOW_UP"))
+    n_replied = sum(1 for a in apps if a.get("status") in ("REPLIED", "INTERVIEW", "OFFER"))
+    n_overdue = 0
+    for a in apps:
+        if a.get("status") not in ("SENT", "FOLLOW_UP") or not a.get("reply_deadline"):
+            continue
+        try:
+            if datetime.strptime(a["reply_deadline"], "%Y-%m-%d").date() < today:
+                n_overdue += 1
+        except ValueError:
+            pass
+
+    kpis = [("کل درخواست‌ها", len(apps), C_DARK),
+            ("در انتظار پاسخ", n_sent, C_YELLOW),
+            ("پاسخ دریافت‌شده", n_replied, C_GREEN),
+            ("مهلت گذشته", n_overdue, C_RED)]
+    for i, (label, val, color) in enumerate(kpis):
+        col = i * 2 + 1
+        wc(ws, 3, col, label, font=fa(sz=9, bold=True, color=C_WHITE), bg=color, align=center())
+        wc(ws, 4, col, val, font=fa(sz=18, bold=True, color=color), align=center())
+
+    # Main table
+    headers = ["ID", "متقاضی", "کارفرما", "شغل / موضوع", "کشور", "ایمیل گیرنده",
+               "تاریخ ارسال", "مهلت پاسخ", "وضعیت", "یادداشت"]
+    for i, h in enumerate(headers):
+        wc(ws, 6, i + 1, h, font=fa(sz=9, bold=True, color=C_WHITE), bg=C_DARK, align=center())
+
+    row = 7
+    for a in sorted(apps, key=lambda x: x.get("sent_date", ""), reverse=True):
+        applicant_label = APPLICANT_EMOJI.get(str(a.get("applicant", "")).upper(), a.get("applicant", ""))
+        country = str(a.get("country", "")).upper()
+        for code, flag in COUNTRY_FLAGS.items():
+            if code in country:
+                country = f"{flag} {country}"
+                break
+        status = str(a.get("status", ""))
+        status_bg = {"SENT": C_LYELLOW, "FOLLOW_UP": C_LYELLOW, "REPLIED": C_LGREEN,
+                     "INTERVIEW": C_LPURPLE, "OFFER": C_LGREEN,
+                     "REJECTED": C_LRED, "WITHDRAWN": C_LGRAY}.get(status, C_LGRAY)
+
+        # رنگ مهلت: قرمز اگر گذشته، زرد اگر نزدیک
+        dl = a.get("reply_deadline") or "—"
+        dl_bg = None
+        if a.get("status") in ("SENT", "FOLLOW_UP") and dl != "—":
+            try:
+                remain = (datetime.strptime(dl, "%Y-%m-%d").date() - today).days
+                dl_bg = C_LRED if remain < 0 else (C_LYELLOW if remain <= 3 else None)
+            except ValueError:
+                pass
+
+        vals = [a.get("id", ""), applicant_label, a.get("employer", ""),
+                a.get("job", "") or a.get("subject", ""), country,
+                a.get("email_to", "") or "—", a.get("sent_date", ""), dl,
+                a.get("status", ""), a.get("notes", "") or "—"]
+        for ci, v in enumerate(vals):
+            bg = dl_bg if ci == 7 else (status_bg if ci == 8 else None)
+            font = fa(sz=9)
+            if ci == 5 and v != "—":
+                font = en(sz=9, color="0563C1")
+            wc(ws, row, ci + 1, v, font=font, bg=bg,
+               align=center() if ci in (0, 1, 4, 6, 7, 8) else None)
+        row += 1
+
+    ws.auto_filter.ref = f"A6:J{max(row - 1, 7)}"
+    widths = [13, 12, 22, 26, 10, 30, 13, 13, 13, 22]
+    for i, w in enumerate(widths):
+        auto_width(ws, i + 1, w)
+    freeze(ws, "A7")
+
+
 def main():
     print("=" * 60)
     print("MigrationHunter — Build Dashboard")
@@ -1103,6 +1195,9 @@ def main():
     print("  📝 Sheet 13: تحلیل ایمیل...")
     build_sheet_13_email_analysis(wb, data)
     
+    print("  📝 Sheet 14: بانک درخواست‌ها...")
+    build_sheet_14_application_bank(wb)
+    
     # Step 5: Save
     os.makedirs(DASH, exist_ok=True)
     filename = f"MigrationHunter_Dashboard_{FILE_DATE}.xlsx"
@@ -1115,7 +1210,7 @@ def main():
     print("📊 خلاصه")
     print("=" * 60)
     print(f"  فایل: {filename}")
-    print(f"  شیت‌ها: 13")
+    print(f"  شیت‌ها: 14")
     print(f"  فرصت‌ها: {len(opps)}")
     for a in get_applicants():
         cnt = sum(1 for o in opps if a['id'].upper() in str(o.get('applicant','')).upper() or a.get('name_fa','') in str(o.get('applicant','')))

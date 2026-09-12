@@ -57,8 +57,90 @@ PIPELINE_STEPS = [
 run_state = {
     "running": False, "log": [], "started_at": None, "finished_at": None,
     "step_index": 0, "step_total": len(PIPELINE_STEPS), "current_step": "",
+    # 🔴 پنل زنده جستجو — اسکریپت‌ها الان کدام منبع/آدرس را می‌کَویند
+    "live": {"active": False, "source": "", "source_idx": 0, "source_total": 0,
+             "url": "", "keyword": "", "sources_done": [], "jobs_found": 0},
 }
 run_lock = threading.Lock()
+
+import re as _re
+
+_LIVE_PATTERNS = {
+    # 📡 [3/18] Seek AU (AU) - در حال بررسی...
+    "source": _re.compile(r"📡\s*\[(\d+)/(\d+)\]\s*(.+?)\s*\((\w+)\)\s*-\s*در حال بررسی"),
+    # 🔎 [1/2] کلیدواژه: «midwife» ← https://...
+    "url": _re.compile(r"🔎\s*\[\d+/\d+\]\s*کلیدواژه:\s*«(.+?)»\s*←\s*(\S+)"),
+    # ⚠️ مجموعاً 0 آگهی یافت شد از Seek NZ  |  ✅ ... 12 آگهی ...
+    "done": _re.compile(r"مجموعاً (\d+) آگهی یافت شد از (.+)"),
+}
+
+
+def _update_live_state(line):
+    """خطوط لاگِ در حال استریم را پارس می‌کند و پنل جستجوی زنده را به‌روز می‌کند."""
+    live = run_state["live"]
+    m = _LIVE_PATTERNS["source"].search(line)
+    if m:
+        live["active"] = True
+        live["source_idx"], live["source_total"] = int(m.group(1)), int(m.group(2))
+        live["source"] = m.group(3).strip()
+        live["url"], live["keyword"] = "", ""
+        return
+    m = _LIVE_PATTERNS["url"].search(line)
+    if m:
+        live["keyword"], live["url"] = m.group(1), m.group(2)
+        return
+    m = _LIVE_PATTERNS["done"].search(line)
+    if m:
+        found, name = int(m.group(1)), m.group(2).strip()
+        live["jobs_found"] += found
+        live["sources_done"].append({"name": name, "jobs": found})
+        # url/keyword را پاک نکن — خط «📡 منبع جدید» خودش آنها را ریست می‌کند
+        # و این‌طوری آخرین URL در پنل زنده تا منبع بعدی دیده می‌ماند.
+
+
+def app_bank_section():
+    """خلاصه بانک درخواست‌ها را برای صفحه اصلی برمی‌گرداند."""
+    bank_path = os.path.join(MEM_DIR, "APPLICATION_BANK.json")
+    if not os.path.exists(bank_path):
+        return ""
+    try:
+        with open(bank_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return ""
+    apps = data.get("applications", [])
+    if not apps:
+        return ""
+    status_counts = {}
+    overdue = 0
+    now = datetime.now()
+    for a in apps:
+        st = a.get("status", "?")
+        status_counts[st] = status_counts.get(st, 0) + 1
+        dl = a.get("reply_deadline")
+        if dl and st in ("SENT", "FOLLOW_UP"):
+            try:
+                if datetime.fromisoformat(dl) < now:
+                    overdue += 1
+            except Exception:
+                pass
+    STATUS_EMOJI = {"SENT": "📤", "REPLIED": "📬", "FOLLOW_UP": "🔁",
+                    "REJECTED": "❌", "INTERVIEW": "🎤", "OFFER": "🎉"}
+    cards_html = ""
+    for st, cnt in sorted(status_counts.items()):
+        emoji = STATUS_EMOJI.get(st, "📋")
+        cards_html += (f'<div class="card" style="text-align:center; padding:12px 8px;">'
+                        f'<div style="font-size:1.4rem">{emoji}</div>'
+                        f'<div style="font-size:1.6rem; font-weight:700">{cnt}</div>'
+                        f'<div style="color:var(--muted); font-size:.85rem">{st}</div></div>')
+    overdue_html = (f'<div style="margin-top:10px; padding:10px 14px; background:#fef3ed; '
+                     f'border-radius:var(--radius); color:var(--err); font-size:.9rem">'
+                     f'⚠️ <strong>{overdue} درخواست</strong> از مهلت پاسخ گذشته — نیاز به پیگیری فوری</div>')
+    return f"""<section>
+  <h2>📋 بانک درخواست‌ها</h2>
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:10px">{cards_html}</div>
+  {overdue_html if overdue else ''}
+</section>"""
 
 
 def load_applicants():
@@ -239,6 +321,8 @@ def run_pipeline_background():
         run_state["step_index"] = 0
         run_state["step_total"] = len(PIPELINE_STEPS)
         run_state["current_step"] = ""
+        run_state["live"] = {"active": False, "source": "", "source_idx": 0, "source_total": 0,
+                             "url": "", "keyword": "", "sources_done": [], "jobs_found": 0}
 
     for i, step in enumerate(PIPELINE_STEPS, 1):
         run_state["step_index"] = i
@@ -248,6 +332,7 @@ def run_pipeline_background():
             _append_log(f"⏭️  {step['emoji']} {step['name']} — فایل {step['script']} پیدا نشد، رد شد")
             continue
         _append_log(f"▶ [{i}/{len(PIPELINE_STEPS)}] {step['emoji']} {step['name']} در حال اجرا…")
+        run_state["live"]["active"] = step["key"] in ("job_search",)
         try:
             # -u = خروجی بدون بافر، تا خط‌به‌خط همین‌جا زنده دیده شود
             proc = subprocess.Popen(
@@ -257,9 +342,10 @@ def run_pipeline_background():
             )
             start_ts = time.monotonic()
             for line in proc.stdout:
-                line = line.rstrip("\n")
+                line = line.rstrip("\r\n")
                 if line.strip():
                     _append_log("   " + line)
+                    _update_live_state(line.strip())
                 if time.monotonic() - start_ts > 1800:  # سقف ۳۰ دقیقه برای هر مرحله
                     proc.kill()
                     _append_log(f"⏱️ {step['emoji']} {step['name']} — بیش از حد طول کشید، متوقف شد")
@@ -274,6 +360,7 @@ def run_pipeline_background():
     with run_lock:
         run_state["running"] = False
         run_state["current_step"] = ""
+        run_state["live"]["active"] = False
         run_state["finished_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -338,6 +425,7 @@ table.files th{padding:8px 6px; border-bottom:2px solid var(--line); text-align:
 table.files td.name a{text-decoration:none}
 table.files td.date{color:var(--muted); font-size:.82rem; white-space:nowrap}
 .empty{color:var(--muted); font-style:italic}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
 .badge{display:inline-block; font-size:.78rem; padding:2px 8px; border-radius:20px; margin-right:6px}
 .badge.ok{background:#e2efe6; color:var(--ok)}
 .badge.err{background:#f4e2dd; color:var(--err)}
@@ -443,6 +531,28 @@ def render_index():
       </div>
     </div>
 
+    <div id="livePanel" style="display:none; margin:14px 0 6px">
+      <div class="card" style="border-color:var(--amber); background:#fdf8ef">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
+          <span style="width:10px; height:10px; border-radius:50%; background:var(--err); display:inline-block; animation:pulse 1.2s infinite"></span>
+          <strong style="color:var(--amber)">🔴 در حال جستجوی زنده…</strong>
+          <span id="liveCounter" style="color:var(--muted); font-size:.85rem"></span>
+        </div>
+        <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:.9rem">
+          <div><span style="color:var(--muted)">📡 منبع فعلی:</span> <strong id="liveSource">—</strong></div>
+          <div><span style="color:var(--muted)">🔎 کلیدواژه:</span> <span id="liveKeyword">—</span></div>
+        </div>
+        <div id="liveUrl" style="direction:ltr; text-align:left; font-family:monospace; font-size:.8rem; color:var(--teal); margin-top:6px; word-break:break-all">—</div>
+        <div style="margin-top:8px; font-size:.85rem">
+          <span style="color:var(--muted)">✅ منابع تمام‌شده:</span>
+          <span id="liveDone">هنوز هیچ منبعی تمام نشده</span>
+        </div>
+        <div style="margin-top:4px; font-size:.85rem; color:var(--ok)">
+          <span style="color:var(--muted)">🧲 مجموع آگهی‌های یافت‌شده تا الان:</span> <strong id="liveJobs">0</strong>
+        </div>
+      </div>
+    </div>
+
     <div id="log">آماده به اجرا. برای شروع دکمه‌ی بالا را بزن.</div>
   </section>
 
@@ -455,6 +565,12 @@ def render_index():
     <h2>داشبوردهای اکسل (dashboard/)</h2>
     <table class="files"><tbody>{file_rows(xlsx_files, "📊")}</tbody></table>
   </section>
+
+  {app_bank_section()}
+
+  <footer style="text-align:center; padding:30px 0 10px; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); margin-top:30px">
+    MigrationHunter v1.0 · آخرین به‌روزرسانی: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+  </footer>
 </main>
 
 <script>
@@ -481,6 +597,25 @@ function pollStatus(){{
     document.getElementById('progressPct').textContent = pct + '%';
     document.getElementById('progressLabel').textContent =
       s.running ? (`مرحله ${{idx}}/${{total}} — ${{s.current_step || '...'}}`) : 'تمام شد';
+
+    // 🔴 پنل زندهٔ جستجو
+    const lp = document.getElementById('livePanel');
+    const lv = s.live || {{}};
+    if (s.running && lv.active) {{
+      lp.style.display = 'block';
+      document.getElementById('liveSource').textContent = lv.source || '…';
+      document.getElementById('liveKeyword').textContent = lv.keyword || '…';
+      document.getElementById('liveUrl').textContent = lv.url || '—';
+      document.getElementById('liveJobs').textContent = lv.jobs_found || 0;
+      document.getElementById('liveCounter').textContent =
+        lv.source_total ? `منبع ${{lv.source_idx || 0}} از ${{lv.source_total}}` : '';
+      const done = lv.sources_done || [];
+      document.getElementById('liveDone').textContent = done.length
+        ? done.map(d => `${{d.name}} (${{d.jobs}})`).join(' · ')
+        : 'هنوز هیچ منبعی تمام نشده';
+    }} else {{
+      lp.style.display = 'none';
+    }}
 
     if(!s.running){{
       clearInterval(polling);

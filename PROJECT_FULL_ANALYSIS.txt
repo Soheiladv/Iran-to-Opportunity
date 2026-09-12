@@ -1,0 +1,215 @@
+================================================================================
+MIGRATIONHUNTER — FULL PROJECT ANALYSIS
+Date: 2026-09-09 | Version analyzed: v3.5 (local checkout)
+================================================================================
+
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+MigrationHunter is a Python-based international job-hunting automation tool for
+two applicants (Tohid — IT/Infrastructure manager, ~19 yrs experience; Neda —
+Midwife). It crawls job boards, scores results against applicant profiles,
+exports Excel dashboards, analyzes job-related emails via IMAP, and (in web_ui)
+generates AI-drafted cover letters.
+
+Verdict as a job-hunting tool: WEAK AS-IS, but salvageable. The crawler
+architecture (generic HTMLParser, no site-specific parsers, no JS rendering)
+means it captures almost nothing real from modern job boards — most target
+sites (Seek, Indeed, StepStone) are JS-rendered and actively block bots. The
+"real vs fake job" detector is not a fake-detector at all — it measures
+keyword match against the applicant profile, so a scam posting containing the
+word "manager" scores as "real". The email module works but crashed on SSL
+abort during logout (unhandled imaplib.abort). Security posture is CRITICAL
+(live credentials in git history).
+
+Overall success potential for actually landing a job offer: low with the
+current design (job boards alone rarely produce sponsored offers; the tool
+finds listings, not employers willing to sponsor). Detailed recommendations
+in section 6.
+
+2. SECURITY AUDIT (CRITICAL FINDINGS FIRST)
+--------------------------------------------------------------------------------
+[CRITICAL] Live Gmail App Passwords committed to git history.
+  - .env11111.txt (real 16-char App Passwords for BOTH accounts) was committed
+    in e882e97 ("New Dashboard") and only removed later in ec1553b.
+  - The repo was pushed to GitHub (Soheiladv/Iran-to-Opportunity).
+  - Anyone who cloned/forked can recover the passwords:
+      git show e882e97:.env11111.txt
+  - .env.example ALSO contains a real-looking password
+    (EMAIL_PASSWORD_Nilofar=volg eigz oxar deen) — and .env.example IS tracked.
+  - config--copy.json (tracked) contains both real email addresses and a full
+    applicant profile.
+  ACTIONS REQUIRED NOW:
+    1. Go to myaccount.google.com/apppasswords and REVOKE both app passwords.
+    2. Create NEW app passwords and store them ONLY in local .env.
+    3. Purge history: use git filter-repo or BFG Repo-Cleaner to remove
+       .env11111.txt and rewrite history, then force-push (coordinate with
+       collaborators), or simpler: delete the GitHub repo and re-create with
+       clean history.
+    4. Remove the password from .env.example; keep placeholders only.
+    5. Remove config--copy.json from tracking or sanitize it.
+
+[HIGH] .gitignore gaps. .env11111.txt was tracked before being ignored — the
+  file existed and got committed. Any file matching a sensitive pattern must be
+  untracked BEFORE it ever gets committed. Also "fonts/", "input/" are not
+  ignored; profiles/ output/ memory/ are (good).
+
+[MEDIUM] No error handling around IMAP disconnect (see 4.3), which leaks
+  tracebacks and can crash the whole run — an availability issue, not
+  confidentiality, but poor hygiene.
+
+[PASS] Passwords are App Passwords (not main Gmail passwords) — limits blast
+  radius. 2FA guidance documented. getpass used in scripts/email_connector.py.
+
+3. ARCHITECTURE OVERVIEW
+--------------------------------------------------------------------------------
+  job_crawler.py     — crawls sources.json targets, parses HTML generically,
+                       scores "realness", writes Excel + CRAWLER_RESULTS.json
+  email_analyzer.py  — IMAP fetch of job-related emails, keyword-based job
+                       detection, Excel dashboard, EMAIL_ANALYSIS.json
+  web_ui.py          — local Flask-style web UI, settings tab, AI (OpenAI/
+                       Gemini) cover-letter generation
+  build_dashboard.py / email_dashboard.py — Excel chart dashboards
+  config_loader.py   — loads config.json applicants (cached)
+  setup.py           — interactive wizard writing config.json + .env
+  run.py / start.bat — orchestration entry points
+
+Data flow: sources.json -> fetch_page (urllib) -> DynamicJobParser ->
+detect_job_realness -> build_jobs_excel -> dashboard/*.xlsx.
+
+4. DEEP-DIVE: COMPONENT-BY-COMPONENT
+--------------------------------------------------------------------------------
+4.1 job_crawler.py — the weakest link.
+  - fetch_page: plain urllib GET with a browser UA. Seek/Indeed/StepStone/
+    LinkedIn-class sites serve JS-rendered pages and bot-block (403/captcha).
+    Result: most sources return None or near-empty HTML. This is why "it does
+    not access standard/real listings".
+  - DynamicJobParser: a generic HTML parser that grabs every <a> with 8-200
+    chars of text and every heading. No site-specific selectors, no pagination,
+    no structured data (JSON-LD/JobPosting) extraction. Output is dominated by
+    navigation links ("Careers", "Contact"), not real vacancies.
+  - Company extraction: literally always empty -> "نامشخص". No company names,
+    so no sponsor identification whatsoever.
+  - detect_job_realness is NOT a fake-job detector: it scores keyword overlap
+    with the applicant profile ("manager", "engineer"...). A scam post saying
+    "IT Manager needed, pay $500 fee to apply" scores as REAL. There is no
+    scam-signal logic (no fee-requests, no unrealistic salary, no free-email
+    recruiter check, no domain validation, no visa-sponsorship wording
+    detection).
+  - Dedup is title+company+source only — the same vacancy reposted gets in
+    twice; navigation noise is kept.
+  - "Recruiters" (recruitment agencies) are not targeted at all: no source
+    entries for healthcare/IT recruitment agencies, no LinkedIn-people/
+    company-pages logic (correctly avoided scraping LinkedIn, but nothing
+    replaced it).
+  - Excel: only 11 columns auto-filter (A1:K) while 12 headers exist; no
+    verification-explanation column.
+
+4.2 sources.json / DEFAULT_SOURCES — reasonable list (Seek NZ/AU, Job Bank CA,
+  JobSearch AU, Bundesagentur, Make-it-in-Germany, Indeed mirrors) but every
+  scraping-hostile one will yield ~0. Government portals (Job Bank, BA) are the
+  most promising because some have server-rendered HTML or APIs.
+
+4.3 email_analyzer.py — functionally OK; the crash you saw is exactly here:
+    analyze_single_account -> connector.disconnect() -> self.conn.logout()
+    raises imaplib.IMAP4.abort ("socket error: EOF") when the server already
+    dropped the SSL connection. Fix: wrap disconnect in try/except and force
+    shutdown; also add NOOP/timeout handling. "0 emails found" is expected for
+    a fresh mailbox — not a bug.
+
+4.4 config system — clean, dynamic, no hardcoding. Good. But config.json
+  currently contains a placeholder profile ("Nilofar", English teacher) — it
+  does not reflect Tohid/Neda's real profiles from the master prompt, so ALL
+  scoring/keyword matching in the crawler is running against the wrong
+  applicant. This alone invalidates current Excel output.
+
+4.5 CLI/Persian/RTL — previous work added UTF-8 wrapping and progress bars;
+  Windows console RTL rendering of Persian remains inherently broken in
+  cmd/PowerShell (bidi is a terminal limitation). Best fix is the web UI or
+  Windows Terminal + `chcp 65001` + a bidi-aware font; do not expect perfect
+  RTL from legacy conhost. (Note: the garbled text in your transcript is this
+  known conhost bidi bug, not data corruption.)
+
+5. SUCCESS POTENTIAL AS A JOB-HUNTING TOOL — HONEST ASSESSMENT
+--------------------------------------------------------------------------------
+Current state: ~2/10.
+  - It will find a handful of real listings from government portals at best.
+  - Zero company/recruiter identification -> cannot find SPONSORSHIP, which is
+    the actual goal (Job Offer + Work Visa + Legal Exit).
+  - The real/fake column is cosmetic and would actively mislead (scam posts
+    flagged "real").
+  - Wrong applicant profile loaded -> scores meaningless.
+  - Neda's path (midwife) requires licensing/registration analysis (NMC UK,
+    AHPRA AU, Midwifery Council NZ, German Anerkennung) — the tool does none.
+Where it CAN help (realistic): aggregate government-portal listings, track
+applications, store email correspondence, generate draft letters. That is a
+support tool, not a job hunter.
+
+6. BETTER SOLUTIONS (RECOMMENDED ROADMAP)
+--------------------------------------------------------------------------------
+A. Fix data acquisition (highest leverage):
+   1. Use official APIs/feeds instead of scraping:
+      - Job Bank Canada / JobSearch AU / Bundesagentur have or had
+        server-rendered search or public datasets — write site-specific
+        parsers with JSON-LD "JobPosting" extraction (schema.org markup is
+        present on most of these pages).
+      - Greenhouse/Lever/Workable public job-board APIs (e.g.
+        boards-api.greenhouse.io/v1/boards/{company}/jobs) — scrape NOTHING,
+        get structured JSON for thousands of companies that hire
+        internationally.
+   2. Sponsor-specific targeting:
+      - UK: official Register of Licensed Sponsors (gov.uk) — filter by
+        Skilled Worker + Health & Care visas; these employers CAN sponsor.
+      - Germany: Bundesagentur "Fachkräfteoffensive", Make-it-in-Germany
+        employer lists; EURES API (EuresJobSearch is public).
+      - NZ: Accredited Employer Work Visa (AEWV) accredited-employer list —
+        immigration.govt.nz publishes it; every employer on it can sponsor.
+      - AU: approved Standard Business Sponsors list (home affairs).
+      - Canada: LMIA-based employer lists / Global Talent Stream employers.
+      This converts the tool from "find any job" to "find SPONSOR-ABLE jobs" —
+      the single biggest possible improvement.
+   3. Recruiter hunting: Neda's field has dedicated international recruiters
+      (healthcare staffing agencies for Germany/UK/AU/NZ actively recruit
+      overseas midwives). Add a curated agency database + contact workflow
+      rather than crawling.
+
+B. Replace the fake/real detector with a real verification engine:
+   - Red flags: application fees, free-mail domains (gmail/yahoo) as employer
+     contact, salary far above market, "no experience/visa guaranteed",
+     telegram/whatsapp-only contact, domain age <1yr (whois), mismatch between
+     company name and official site.
+   - Green flags: posting on official/government board, structured JSON-LD,
+     sponsor-license wording, named recruiter agency, HTTPS corporate domain.
+   - Output a VERIFICATION EXPLANATION column in the same Excel row: every
+     flag matched, with weights and a final verdict + reason string. (This is
+     the feature you asked for — currently entirely missing.)
+
+C. Fix the profile: load Tohid/Neda's real profiles (from your master prompt)
+   into config.json — the current "Nilofar" placeholder must go.
+
+D. Engineering fixes:
+   - try/except around IMAP logout (SSL abort), per-account isolation so one
+     failure does not kill the run.
+   - requests + session (already in requirements but urllib is used) with
+     retries/backoff; or Playwright for the few JS-only sites worth it.
+   - Persian CLI: recommend running under Windows Terminal (not conhost) and
+     consider making the CLI English-only with Persian only in the web UI and
+     Excel (where RTL works properly).
+   - Security cleanup per section 2 — do this FIRST.
+
+E. Strategic reality check: for a midwife, Germany/UK/AU/NZ all have
+   regulated registration pipelines that take months BEFORE employment — the
+   fastest realistic exit for the family likely runs through Neda's
+   sponsorship-eligible healthcare routes or Tohid's IT roles at
+   accredited/sponsoring employers. The tool should rank by
+   sponsorship-availability + processing time, which the roadmap above
+   enables.
+
+7. PRIORITY ORDER
+--------------------------------------------------------------------------------
+ 1. [SECURITY] Revoke both App Passwords today; purge git history.
+ 2. Fix config.json profiles (real applicants, not placeholder).
+ 3. Replace crawler targets with sponsor lists + public APIs (A.1-A.2).
+ 4. Implement genuine verification engine + Excel explanation column (B).
+ 5. Fix IMAP crash + per-account isolation (D).
+ 6. CLI/Persian polish (D) — lowest priority.
+================================================================================

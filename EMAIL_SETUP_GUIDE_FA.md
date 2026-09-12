@@ -223,13 +223,19 @@ python email_analyzer.py --limit 500
 ❌ خطا در اتصال: [AUTHENTICATIONFAILED] Invalid credentials
 ```
 
-**دلیل:** App Password اشتباه یا وجود ندارد.
+**دلیل:** App Password اشتباه، منقضی‌شده یا وجود ندارد.
 
 **راه‌حل:**
 1. مطمئن شو 2-Step Verification فعال است
 2. یک App Password جدید بساز
 3. کد را دقیقاً کپی کن (بدون فاصله اضافی)
 4. در `.env` جایگزین کن
+
+> 💡 **نکته (سپتامبر ۲۰۲۶):** اسکریپت حالا فاصله‌های داخل رمز را خودکار حذف می‌کند،
+> پس هم `abcdefghijklmnop` و هم `abcd efgh ijkl mnop` قبول می‌شود.
+> اگر باز هم خطا گرفتی، یعنی خود رمز نامعتبر است — در
+> **https://myaccount.google.com/apppasswords** یک رمز جدید بساز و در `.env` جایگزین کن.
+> (رمزهای قدیمی که از دستگاه دیگری حذف شده‌اند فوراً غیرفعال می‌شوند.)
 
 ### خطا: `Application-specific password required`
 
