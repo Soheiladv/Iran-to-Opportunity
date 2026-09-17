@@ -6,10 +6,12 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-3.0-blue)
+![Version](https://img.shields.io/badge/version-3.1-blue)
 ![Python](https://img.shields.io/badge/Python-3.10+-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen)
+
+> 🆕 **نسخه ۳.۱** — استخراج JSON-LD، نام شرکت واقعی، گزارش زندهٔ جستجو، بانک منابع خودآموخته (discovered_sources)، تب جدید فایل‌ها در وب UI. برای جزئیات [گزارش تغییرات](#-چه-چیز-در-v31-تغییر-کرد) را ببینید.
 
 </div>
 
@@ -47,6 +49,19 @@
 
 ---
 
+## 🔄 چه چیز در v3.1 تغییر کرد
+
+| قبل | بعد |
+|------|------|
+| لیست منابع هاردکد در کد | مرجع واحد: `sources.json` (۲۵ منبع، ۹ کشور) — بدون هاردکد |
+| نام شرکت همیشه «نامشخص» | استخراج واقعی از JSON-LD + h2/h3 اطراف لینک |
+| آگهی‌های منو/فوتر هم شمرده می‌شدند | فیلتر نویز جدی — فقط لینک‌های آگهی‌نما |
+| progress bar ساختگی | فقط با اتمام هر سایت جلو می‌رود + نمایش زندهٔ نام/لینک |
+| فایل‌ها صفحهٔ اصلی را شلوغ می‌کردند | تب اختصاصی «📁 فایل‌ها» + صفحهٔ اصلی = گزارش زنده |
+| هیچ حافظه‌ای از منابع موفق | بانک `discovered_sources.json` — منابع پربازده اول جستجو |
+
+---
+
 ## 🏗️ معماری سیستم
 
 ```
@@ -66,7 +81,7 @@
 
 | لایه | عملکرد | ابزارها |
 |-------|----------|---------|
-| **جمع‌آوری** | خواندن سایت‌ها و استخراج مشاغل | Python + requests |
+| **جمع‌آوری** | خواندن سایت‌ها، استخراج JSON-LD (schema.org/JobPosting) و لینک‌های آگهی | Python (urllib + HTMLParser) |
 | **تحلیل** | امتیازدهی، تطبیق، یادگیری | Python + AI API (OpenAI/Gemini) |
 | **خروجی** | اکسل + گزارش‌های فارسی + ایمیل | openpyxl + Markdown + SMTP |
 
@@ -81,6 +96,7 @@ MigrationHunter/
 ├── 📄 EXECUTION_GUIDE.md           ← راهنمای اجرا
 ├── 🐍 setup.py                     ← راه‌اندازی پویا (ایجاد config.json + .env)
 ├── 🐍 run.py                       ← اجرای اصلی پایپ‌لاین
+├── 🐍 web_ui.py                    ← داشبورد وب با گزارش زنده (پورت 8877)
 ├── 🐍 email_analyzer.py            ← اسکنر جیمیل
 ├── 🐍 email_dashboard.py           ← داشبورد تحلیل ایمیل اکسل
 ├── 🐍 job_crawler.py               ← خزنده سایت‌های کاریابی
@@ -99,6 +115,7 @@ MigrationHunter/
 │   └── APPLICANT2_PROFILE.md       ← الگوی پروفایل
 │
 ├── 📂 memory/
+│   ├── discovered_sources.json     ← بانک منابع آگهی‌دار (خودآموخته — v3.1)
 │   ├── SOURCE_BANK.md              ← بانک منابع (یادگیری خودکار)
 │   ├── EMPLOYER_BANK.md            ← بانک کارفرمایان
 │   ├── JOB_BANK.md                 ← بانک مشاغل
@@ -112,6 +129,7 @@ MigrationHunter/
 │   └── LATEST_SEARCH.md            ← آخرین ورودی جستجو
 │
 ├── 📂 output/
+│   ├── VPN_SERVERS.md              ← راهنمای کامل VPN رایگان (VPN Gate)
 │   ├── TOP_JOBS.md                 ← برترین فرصت‌ها
 │   ├── EMPLOYERS_TO_CONTACT.md     ← کارفرمایان برای تماس
 │   ├── RECRUITMENT_AGENCIES.md     ← آژانس‌های کاریابی
@@ -131,6 +149,55 @@ MigrationHunter/
 
 ---
 
+## 🖥 داشبورد وب (جدید در v3.1)
+
+```bash
+python web_ui.py            # پیش‌فرض: http://127.0.0.1:8877
+python web_ui.py --port 9000
+```
+
+| تب | کارکرد |
+|------|--------|
+| **🔴 گزارش زنده** | صفحهٔ اصلی — حین جستجو: منبع فعلی + لینک + کلیدواژه + شمارندهٔ زندهٔ آگهی‌ها + progress واقعی |
+| **📁 فایل‌ها** | همهٔ گزارش‌های `output/` و اکسل‌های `dashboard/` در یک‌جا |
+| **📑 گزارش‌ها** | آگهی‌های مرتبط هر متقاضی + تولید کاور لتر با AI |
+| **⚙️ تنظیمات** | متقاضی‌ها، ایمیل/رمز، فعال/غیرفعال‌کردن هر منبع جستجو |
+| **ℹ️ توضیحات** | توضیح صادقانهٔ محدودیت‌ها (مثلاً سایت‌های JS-only) |
+
+### progress واقعی — نه تزئینی
+نوار پیشرفت فقط وقتی جلو می‌رود که یک سایت **کامل تمام** شود. در حین جستجو می‌بینید:
+
+```
+📡 منبع فعلی: Job Bank Canada (رسمی دولت)    منبع 2/25
+🔎 کلیدواژه: «midwife»
+https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife
+✅ منابع تمام‌شده: Seek NZ (5) · Trade Me (0) · ...
+🧲 مجموع آگهی‌های یافت‌شده تا الان: 47
+```
+
+---
+
+## 🧲 بانک منابع خودآموخته (جدید در v3.1)
+
+فایل `memory/discovered_sources.json` — قلب سیستم یادگیری منابع:
+
+- **قبل از هر جستجو:** صفحهٔ منابع اسکن می‌شود و دامنه‌های «آگهی‌دار» جدید (تا ۱۲ در هر اجرا) کشف و ثبت می‌شوند
+- **حین جستجو:** هر سایتی که آگهی واقعی داد، در بانک ثبت می‌شود (`total_found`، `hits`)
+- **اجرای بعدی:** منابع اثبات‌شده بر اساس بازده به‌صورت خودکار **اول جستجو** می‌شوند
+- **بدون دست‌زدن به sources.json** — لیست اصلی شما محفوظ می‌ماند
+
+```json
+{
+  "Job Bank Canada (رسمی دولت)": {
+    "url": "https://www.jobbank.gc.ca",
+    "country": "CA",
+    "total_found": 47,
+    "hits": 3,
+    "last_seen": "2026-09-17 14:30"
+  }
+}
+```
+
 ## 🚀 نصب و استفاده
 
 ### پیش‌نیازها
@@ -143,7 +210,7 @@ pip install -r requirements.txt
 ### نصب
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/MigrationHunter.git
+git clone https://github.com/Soheiladv/Iran-to-Opportunity.git
 cd MigrationHunter
 pip install -r requirements.txt
 ```
@@ -159,7 +226,13 @@ python email_analyzer.py --dry-run
 
 # ۳. اجرای کامل پایپ‌لاین (۵ مرحله)
 python run.py
+
+# ۴. یا داشبورد وب با گزارش زنده
+python web_ui.py
 ```
+
+> 🔒 **فیلترشده‌ای؟** اگر سایت‌های کاریابی IP ایران را مسدود می‌کنند، ابتدا VPN وصل کن —
+> راهنمای کامل سرورهای رایگان VPN Gate: [`output/VPN_SERVERS.md`](output/VPN_SERVERS.md)
 
 ### عملکرد `run.py`
 
@@ -167,7 +240,7 @@ python run.py
 |------|--------|-------------|--------|
 | ۱ | `email_analyzer.py` | اسکن ۳۰ روز اخیر جیمیل | `memory/EMAIL_ANALYSIS.json` |
 | ۲ | `email_dashboard.py` | ایجاد اکسل تحلیل ایمیل | `dashboard/Email_Analysis_*.xlsx` |
-| ۳ | `job_crawler.py` | جستجو در ۹ سایت کاریابی | `dashboard/Job_Crawler_*.xlsx` |
+| ۳ | `job_crawler.py` | جستجو در ۲۵+ سایت کاریابی (۹ کشور) با استخراج JSON-LD | `dashboard/Job_Crawler_*.xlsx` |
 | ۴ | `followup_reminder.py` | تولید گزارش پیگیری | `output/FOLLOWUP_REMINDER.md` |
 | ۵ | `build_dashboard.py` | ساخت داشبورد اصلی ۱۳ برگه‌ای | `dashboard/MigrationHunter_Dashboard_*.xlsx` |
 
@@ -437,6 +510,10 @@ python email_dashboard.py
 # فقط جستجوی شغل
 python job_crawler.py
 
+# داشبورد وب با گزارش زنده
+python web_ui.py
+python web_ui.py --port 9000
+
 # فقط یادآوری پیگیری
 python followup_reminder.py
 
@@ -476,8 +553,8 @@ MIT License — استفاده آزاد با ذکر منبع
 
 ## 📞 تماس
 
-**GitHub:** [MigrationHunter](https://github.com/YOUR_USERNAME/MigrationHunter)
-**مشکلات:** [GitHub Issues](https://github.com/YOUR_USERNAME/MigrationHunter/issues)
+**GitHub:** [Iran-to-Opportunity](https://github.com/Soheiladv/Iran-to-Opportunity)
+**مشکلات:** [GitHub Issues](https://github.com/Soheiladv/Iran-to-Opportunity/issues)
 
 ---
 
