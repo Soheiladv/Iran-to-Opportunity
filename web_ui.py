@@ -66,8 +66,8 @@ run_lock = threading.Lock()
 import re as _re
 
 _LIVE_PATTERNS = {
-    # 📡 [3/18] Seek AU (AU) - در حال بررسی...
-    "source": _re.compile(r"📡\s*\[(\d+)/(\d+)\]\s*(.+?)\s*\((\w+)\)\s*-\s*در حال بررسی"),
+    # 📡 [3/18] Seek AU (AU) - در حال بررسی… (هم - و هم —)
+    "source": _re.compile(r"📡\s*\[(\d+)/(\d+)\]\s*(.+?)\s*\((\w+)\)\s*[—-]+\s*در حال بررسی"),
     # 🔎 [1/2] کلیدواژه: «midwife» ← https://...
     "url": _re.compile(r"🔎\s*\[\d+/\d+\]\s*کلیدواژه:\s*«(.+?)»\s*←\s*(\S+)"),
     # ⚠️ مجموعاً 0 آگهی یافت شد از Seek NZ  |  ✅ ... 12 آگهی ...
@@ -455,11 +455,58 @@ def nav_html(active):
     def cls(name):
         return "active" if name == active else ""
     return f"""<nav class="tabs">
-  <a class="{cls('dashboard')}" href="/">داشبورد</a>
+  <a class="{cls('dashboard')}" href="/">گزارش زنده</a>
+  <a class="{cls('files')}" href="/files">📁 فایل‌ها</a>
   <a class="{cls('reports')}" href="/reports">📑 گزارش‌ها</a>
   <a class="{cls('settings')}" href="/settings">⚙️ تنظیمات</a>
   <a class="{cls('about')}" href="/about">ℹ️ توضیحات</a>
 </nav>"""
+
+
+def render_files():
+    """تب جدید: همهٔ فایل‌های تولیدشده (output + dashboard) — از صفحهٔ اصلی حذف شد."""
+    md_files = list_files(OUTPUT_DIR, exts=[".md", ".txt"])
+    xlsx_files = list_files(DASHBOARD_DIR, exts=[".xlsx"])
+
+    def file_rows(files, icon, empty_msg):
+        if not files:
+            return f'<tr><td colspan="2" class="empty">{empty_msg}</td></tr>'
+        rows = []
+        for f in files[:60]:
+            dt = datetime.fromtimestamp(f["mtime"]).strftime("%Y-%m-%d %H:%M")
+            rows.append(
+                f'<tr><td class="name">{icon} <a href="/file?path={html.escape(f["rel"])}">{html.escape(f["name"])}</a></td>'
+                f'<td class="date">{dt}</td></tr>'
+            )
+        return "".join(rows)
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — فایل‌ها</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <h1>📁 فایل‌های تولیدشده</h1>
+  {nav_html('files')}
+</header>
+<main>
+  <section>
+    <h2>داشبوردهای اکسل (dashboard/)</h2>
+    <table class="files"><tbody>{file_rows(xlsx_files, "📊", "هنوز اکسلی ساخته نشده — یک‌بار پایپ‌لاین را اجرا کن")}</tbody></table>
+  </section>
+  <section>
+    <h2>گزارش‌های متنی (output/)</h2>
+    <table class="files"><tbody>{file_rows(md_files, "📄", "هنوز گزارشی تولید نشده")}</tbody></table>
+  </section>
+  <footer style="text-align:center; padding:30px 0 10px; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); margin-top:30px">
+    MigrationHunter v3.1 · آخرین به‌روزرسانی: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+  </footer>
+</main>
+</body></html>"""
 
 
 def render_index():
@@ -479,21 +526,6 @@ def render_index():
         for s in PIPELINE_STEPS
     )
 
-    md_files = list_files(OUTPUT_DIR, exts=[".md", ".txt"])
-    xlsx_files = list_files(DASHBOARD_DIR, exts=[".xlsx"])
-
-    def file_rows(files, icon):
-        if not files:
-            return '<tr><td colspan="2" class="empty">چیزی هنوز تولید نشده</td></tr>'
-        rows = []
-        for f in files[:25]:
-            dt = datetime.fromtimestamp(f["mtime"]).strftime("%Y-%m-%d %H:%M")
-            rows.append(
-                f'<tr><td class="name">{icon} <a href="/file?path={html.escape(f["rel"])}">{html.escape(f["name"])}</a></td>'
-                f'<td class="date">{dt}</td></tr>'
-            )
-        return "".join(rows)
-
     return f"""<!doctype html>
 <html lang="fa"><head>
 <meta charset="utf-8">
@@ -509,64 +541,49 @@ def render_index():
 </header>
 <main>
   <section>
-    <h2>متقاضی‌ها</h2>
-    <div class="grid">{cards}</div>
-  </section>
-
-  <section>
-    <h2>اجرای پایپ‌لاین</h2>
-    <p>پنج مرحله به‌ترتیب اجرا می‌شوند و نتیجه‌شان در پایین لاگ می‌شود:</p>
-    <ol class="steps">{steps_html}</ol>
-    <p style="margin-top:16px">
-      <button class="btn" id="runBtn" onclick="startRun()">▶ اجرای پایپ‌لاین</button>
-    </p>
-
-    <div id="progressWrap" style="display:none; margin:14px 0 6px">
-      <div style="display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin-bottom:4px">
-        <span id="progressLabel">—</span>
-        <span id="progressPct">0%</span>
-      </div>
-      <div style="background:var(--line); border-radius:20px; height:10px; overflow:hidden">
-        <div id="progressBar" style="background:var(--amber); height:100%; width:0%; transition:width .3s"></div>
-      </div>
-    </div>
-
-    <div id="livePanel" style="display:none; margin:14px 0 6px">
+    <h2>🔴 گزارش لحظه‌ای جستجو</h2>
+    <div id="livePanel" style="display:none; margin:6px 0 18px">
       <div class="card" style="border-color:var(--amber); background:#fdf8ef">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
           <span style="width:10px; height:10px; border-radius:50%; background:var(--err); display:inline-block; animation:pulse 1.2s infinite"></span>
-          <strong style="color:var(--amber)">🔴 در حال جستجوی زنده…</strong>
+          <strong style="color:var(--amber)">در حال جستجوی زنده…</strong>
           <span id="liveCounter" style="color:var(--muted); font-size:.85rem"></span>
         </div>
-        <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:.9rem">
+        <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:.95rem">
           <div><span style="color:var(--muted)">📡 منبع فعلی:</span> <strong id="liveSource">—</strong></div>
           <div><span style="color:var(--muted)">🔎 کلیدواژه:</span> <span id="liveKeyword">—</span></div>
         </div>
         <div id="liveUrl" style="direction:ltr; text-align:left; font-family:monospace; font-size:.8rem; color:var(--teal); margin-top:6px; word-break:break-all">—</div>
-        <div style="margin-top:8px; font-size:.85rem">
+        <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin-bottom:4px">
+          <span id="progressLabel">—</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div style="background:var(--line); border-radius:20px; height:12px; overflow:hidden">
+          <div id="progressBar" style="background:var(--amber); height:100%; width:0%; transition:width .3s"></div>
+        </div>
+        <div style="margin-top:10px; font-size:.85rem">
           <span style="color:var(--muted)">✅ منابع تمام‌شده:</span>
           <span id="liveDone">هنوز هیچ منبعی تمام نشده</span>
         </div>
-        <div style="margin-top:4px; font-size:.85rem; color:var(--ok)">
+        <div style="margin-top:4px; font-size:1rem; color:var(--ok)">
           <span style="color:var(--muted)">🧲 مجموع آگهی‌های یافت‌شده تا الان:</span> <strong id="liveJobs">0</strong>
         </div>
       </div>
     </div>
-
-    <div id="log">آماده به اجرا. برای شروع دکمه‌ی بالا را بزن.</div>
+    <div id="log">آماده به اجرا. برای شروع دکمه‌ی «اجرای پایپ‌لاین» را بزن.</div>
   </section>
 
   <section>
-    <h2>گزارش‌ها (output/)</h2>
-    <table class="files"><tbody>{file_rows(md_files, "📄")}</tbody></table>
-  </section>
-
-  <section>
-    <h2>داشبوردهای اکسل (dashboard/)</h2>
-    <table class="files"><tbody>{file_rows(xlsx_files, "📊")}</tbody></table>
+    <h2>اجرای پایپ‌لاین</h2>
+    <ol class="steps">{steps_html}</ol>
+    <p style="margin-top:16px">
+      <button class="btn" id="runBtn" onclick="startRun()">▶ اجرای پایپ‌لاین</button>
+    </p>
   </section>
 
   {app_bank_section()}
+
+  <p style="margin-top:20px"><a class="btn" href="/files">📁 دیدن همهٔ فایل‌ها و داشبوردهای اکسل</a></p>
 
   <footer style="text-align:center; padding:30px 0 10px; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); margin-top:30px">
     MigrationHunter v1.0 · آخرین به‌روزرسانی: {datetime.now().strftime("%Y-%m-%d %H:%M")}
@@ -578,7 +595,7 @@ let polling = null;
 function startRun(){{
   fetch('/run', {{method:'POST'}}).then(()=>{{
     document.getElementById('runBtn').disabled = true;
-    document.getElementById('progressWrap').style.display = 'block';
+    document.getElementById('livePanel').style.display = 'block';
     document.getElementById('log').textContent = 'شروع شد…';
     polling = setInterval(pollStatus, 900);
     pollStatus();
@@ -590,28 +607,39 @@ function pollStatus(){{
     logBox.textContent = s.log.join('\\n') || '…';
     logBox.scrollTop = logBox.scrollHeight;  // همیشه آخرین خط لایو دیده شود
 
-    const total = s.step_total || 1;
-    const idx = s.step_index || 0;
-    const pct = Math.round((idx / total) * 100);
+    // 🎯 progress واقعی — فقط وقتی منابعی تمام شده‌اند جلو می‌رود
+    const lv = s.live || {{}};
+    let pct = 0;
+    if (s.running && lv.active && lv.source_total) {{
+      pct = Math.min(100, Math.round(((lv.source_idx || 0) / lv.source_total) * 100));
+    }} else if (!s.running) {{
+      pct = 100;
+    }} else {{
+      // خارج از فاز جستجو — بر اساس مرحلهٔ پایپ‌لاین (ولی با سقف ۱۰۰)
+      pct = Math.round(((s.step_index || 0) / (s.step_total || 5)) * 100);
+    }}
     document.getElementById('progressBar').style.width = pct + '%';
     document.getElementById('progressPct').textContent = pct + '%';
     document.getElementById('progressLabel').textContent =
-      s.running ? (`مرحله ${{idx}}/${{total}} — ${{s.current_step || '...'}}`) : 'تمام شد';
+      s.running
+        ? (lv.active && lv.source
+            ? `منبع ${{lv.source_idx || '?'}}/${{lv.source_total || '?'}} — ${{lv.source}}`
+            : `مرحله ${{s.step_index || '?'}}/${{s.step_total || '?'}} — ${{s.current_step || '...'}}`)
+        : 'تمام شد';
 
     // 🔴 پنل زندهٔ جستجو
     const lp = document.getElementById('livePanel');
-    const lv = s.live || {{}};
-    if (s.running && lv.active) {{
+    if (s.running) {{
       lp.style.display = 'block';
-      document.getElementById('liveSource').textContent = lv.source || '…';
-      document.getElementById('liveKeyword').textContent = lv.keyword || '…';
+      document.getElementById('liveSource').textContent = lv.source || s.current_step || '…';
+      document.getElementById('liveKeyword').textContent = lv.keyword || '—';
       document.getElementById('liveUrl').textContent = lv.url || '—';
       document.getElementById('liveJobs').textContent = lv.jobs_found || 0;
       document.getElementById('liveCounter').textContent =
         lv.source_total ? `منبع ${{lv.source_idx || 0}} از ${{lv.source_total}}` : '';
       const done = lv.sources_done || [];
       document.getElementById('liveDone').textContent = done.length
-        ? done.map(d => `${{d.name}} (${{d.jobs}})`).join(' · ')
+        ? done.map(d => `${{d.name}} ({{d.jobs}})`).join(' · ')
         : 'هنوز هیچ منبعی تمام نشده';
     }} else {{
       lp.style.display = 'none';
@@ -622,7 +650,7 @@ function pollStatus(){{
       document.getElementById('runBtn').disabled = false;
       document.getElementById('progressBar').style.width = '100%';
       document.getElementById('progressPct').textContent = '100%';
-      logBox.textContent += '\\n\\n— پایان اجرا — صفحه را رفرش کن تا فایل‌های جدید را ببینی —';
+      logBox.textContent += '\\n\\n— پایان اجرا — فایل‌های جدید را در تب «📁 فایل‌ها» ببین —';
       logBox.scrollTop = logBox.scrollHeight;
     }}
   }});
@@ -1213,6 +1241,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/":
             self._send(render_index())
+        elif parsed.path == "/files":
+            self._send(render_files())
         elif parsed.path == "/settings":
             self._send(render_settings())
         elif parsed.path == "/about":

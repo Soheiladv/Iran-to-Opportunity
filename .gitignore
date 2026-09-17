@@ -15,6 +15,9 @@ secrets.json
 email_accounts.json
 !.env.example
 
+# ---- بانک منابع آگهی — به GitHub منتقل می‌شود (بدون اطلاعات شخصی) ----
+!sources.json
+
 # ---- حافظه (حاوی اطلاعات شخصی) ----
 memory/
 
