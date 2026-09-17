@@ -11,6 +11,74 @@ from urllib.error import URLError, HTTPError
 from urllib.parse import urljoin, urlparse, parse_qs
 from html.parser import HTMLParser
 
+try:
+    from playwright.sync_api import sync_playwright  # رندر جاوااسکریپت — اختیاری
+    HAS_PLAYWRIGHT = True
+except ImportError:
+    HAS_PLAYWRIGHT = False
+
+# مرورگر headless — اول Chromium، اگر نبود Edge/Chrome ویندوز (نیازی به دانلود ندارد)
+_PW = None      # context playwright — یک‌بار start، در _close_browser متوقف می‌شود
+_BROWSER = None  # نگه‌داشتن مرورگر بین منابع — یک‌بار launch می‌شود
+
+def _launch_browser(playwright):
+    for kwargs in ({}, {"channel": "msedge"}, {"channel": "chrome"}):
+        try:
+            return playwright.chromium.launch(headless=True, **kwargs)
+        except Exception:
+            continue
+    return None
+
+def _pw_fetch(url, timeout_ms=25000):
+    """دریافت HTML رندرشده با مرورگر headless — برای منابع needs_js و مسدودشده.
+    نکته: page در بلوک finally بسته می‌شود تا در timeout نشت نکند (نشت صفحه
+    باعث قفل‌شدن sync_playwright و هنگ‌کردن بی‌نهایت کراولر می‌شود)."""
+    global _PW, _BROWSER
+    if not HAS_PLAYWRIGHT:
+        return None
+    try:
+        from playwright.sync_api import sync_playwright
+        if _PW is None:
+            _PW = sync_playwright().start()
+        if _BROWSER is None or not _BROWSER.is_connected():
+            _BROWSER = _launch_browser(_PW)
+        if _BROWSER is None:
+            return None
+        page = _BROWSER.new_page(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+            viewport={"width": 1366, "height": 900},
+            locale="en-US",
+        )
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
+            try:
+                page.wait_for_load_state("networkidle", timeout=5000)
+            except Exception:
+                pass
+            html = page.content()
+            return html if html and len(html) > 500 else None
+        finally:
+            try:
+                page.close()
+            except Exception:
+                pass
+    except Exception:
+        return None
+
+def _close_browser():
+    global _PW, _BROWSER
+    try:
+        if _BROWSER is not None:
+            _BROWSER.close()
+    except Exception:
+        pass
+    try:
+        if _PW is not None:
+            _PW.stop()
+    except Exception:
+        pass
+    _BROWSER = _PW = None
+
 # Fix Windows console encoding
 if sys.platform == 'win32':
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
@@ -28,6 +96,7 @@ FILE_DATE = NOW.strftime("%Y%m%d_%H%M")
 
 SOURCES_PATH = os.path.join(BASE, "sources.json")
 DISCOVERED_PATH = os.path.join(MEM, "discovered_sources.json")
+YIELD_HISTORY_PATH = os.path.join(MEM, "SOURCE_YIELD_HISTORY.json")
 
 # progress سراسری — web_ui.py روی همین لاگ می‌سازد
 P = {
@@ -170,6 +239,65 @@ def get_priority_sources(active_sources):
     return [s for _, s in proven] + fresh
 
 
+# ════════════════════════════════════════════════════
+# تاریخچهٔ بازده منابع — SOURCE_YIELD_HISTORY.json
+# هر اجرا: چند آگهی از هر منبع؟ → تب «📈 بازده منابع» روی همین رشد می‌کند
+# ════════════════════════════════════════════════════
+
+def record_yield_history(per_source_jobs):
+    """یک رکورد تاریخی برای هر اجرا ذخیره می‌کند (حداکثر ۶۰ اجرای آخر)."""
+    try:
+        history = []
+        if os.path.exists(YIELD_HISTORY_PATH):
+            with open(YIELD_HISTORY_PATH, "r", encoding="utf-8") as f:
+                history = json.load(f)
+        if not isinstance(history, list):
+            history = []
+        history.append({
+            "date": DATE_STR,
+            "total": sum(per_source_jobs.values()),
+            "sources": {k: v for k, v in per_source_jobs.items()},
+        })
+        with open(YIELD_HISTORY_PATH, "w", encoding="utf-8") as f:
+            json.dump(history[-60:], f, ensure_ascii=False, indent=1)
+    except Exception as e:
+        print(f"  ⚠️ ذخیرهٔ تاریخچهٔ بازده ناموفق: {e}")
+
+
+def load_yield_history():
+    if not os.path.exists(YIELD_HISTORY_PATH):
+        return []
+    try:
+        with open(YIELD_HISTORY_PATH, "r", encoding="utf-8") as f:
+            history = json.load(f)
+        return history if isinstance(history, list) else []
+    except Exception:
+        return []
+
+
+def yield_stats(history=None):
+    """آمار تجمعی هر منبع: مجموع/میانگین/بیشترین آگهی + چند اجرای کارا."""
+    history = history if history is not None else load_yield_history()
+    stats = {}
+    for run in history:
+        for name, cnt in (run.get("sources") or {}).items():
+            st = stats.setdefault(name, {
+                "runs": 0, "with_jobs": 0, "total": 0, "best": 0, "last": 0, "last_date": "",
+            })
+            cnt = int(cnt or 0)
+            st["runs"] += 1
+            st["total"] += cnt
+            st["best"] = max(st["best"], cnt)
+            if cnt > 0:
+                st["with_jobs"] += 1
+            st["last"] = cnt
+            st["last_date"] = run.get("date", "")
+    for st in stats.values():
+        st["avg"] = round(st["total"] / st["runs"], 1) if st["runs"] else 0
+        st["rate"] = round(st["with_jobs"] * 100 / st["runs"]) if st["runs"] else 0
+    return stats
+
+
 # ═══════════════ discovered-sites scanner ═══════════════
 # قبل از هر جستجو، صفحهٔ اصلی هر منبع را می‌کَوید و هر دامنهٔ
 # جدیدی که آگهی دارد به بانک اضافه می‌شود. خروجی به sources.json
@@ -181,17 +309,30 @@ AD_DOMAIN_HINTS = re.compile(
     re.I
 )
 
-def scan_for_new_sources(sources, max_scan=8, timeout=8):
+def scan_for_new_sources(sources, max_scan=10, timeout=8):
     """
     قبل از هر جستجو: صفحهٔ اصلی برخی منابع را می‌کَوید و دامنه‌های
     «آگهی‌دار» جدید را پیدا می‌کند. منابع جدید به discovered_sources.json
     (نه sources.json) اضافه می‌شوند تا لیست اصلی دست‌نخورده بماند.
+
+    تیونینگ نسبت به نسخهٔ قبل:
+    - شروع اسکن از منابع پربازدهٔ بانک (منابع کاری که لینک‌های خوبی دارند)
+    - تأیید دومرحله‌ای: دامنهٔ نامزد باید صفحهٔ اصلی‌اش هم آگهی واقعی داشته باشد
+      (JSON-LD یا لینک آگهی) — وگرنه فقط دامنهٔ تبلیغاتی است و ثبت نمی‌شود.
+    - از هر منبعِ میزبان حداکثر ۳ دامنهٔ جدید تا بانک پرِ آشغال نشود.
     """
     bank = load_discovered()
     added = 0
     seen_domains = {urlparse(s["url"]).netloc for s in sources}
-    for s in sources[:max_scan]:
-        html = fetch_page(s["url"], timeout=timeout)
+    # منابعی که تا الان بازده داشته‌اند اول اسکن می‌شوند — لینک‌های بهتری دارند
+    ordered = sorted(
+        sources,
+        key=lambda s: -load_discovered().get(s["name"], {}).get("total_found", 0),
+    )[:max_scan]
+    for s in ordered:
+        per_host = 0
+        # HTTP ساده — نه مرورگر؛ اسکن نباید کند و ریسکی شود
+        html = _fetch_plain(s["url"], timeout=timeout)
         if not html:
             continue
         for m in re.finditer(r'href="(https?://[^"]+)"', html):
@@ -204,18 +345,27 @@ def scan_for_new_sources(sources, max_scan=8, timeout=8):
                 continue
             if not AD_DOMAIN_HINTS.search(dom):
                 continue
-            # دامنهٔ جدید آگهی‌دار پیدا شد
             seen_domains.add(dom)
+            # ── تأیید دومرحله‌ای: این دامنه واقعاً آگهی دارد؟ ──
+            candidate_html = fetch_page(f"https://{dom}", timeout=timeout, allow_browser=False)
+            if not candidate_html:
+                continue
+            probe = extract_jobs_from_html(candidate_html, {"name": dom, "url": f"https://{dom}", "country": s.get("country", "؟")})
+            if not probe:
+                continue  # بدون آگهی واقعی → تبلیغاتی است، ثبت نمی‌شود
+            # ── ثبت ──
             name = f"[کشف‌شده] {dom}"
             if name in bank:
                 continue
             bank[name] = {
                 "url": f"https://{dom}", "country": s.get("country", "؟"),
                 "discovered_from": s["name"], "discovered_at": DATE_STR,
-                "total_found": 0, "hits": 0,
+                "total_found": len(probe), "hits": 1,
             }
+            per_host += 1
             added += 1
-            if added >= 12:  # سقف: در هر اجرا حداکثر ۱۲ دامنهٔ جدید
+            print(f"      🛰 دامنهٔ آگهی‌دار جدید: {dom} ({len(probe)} آگهی)", flush=True)
+            if per_host >= 3 or added >= 12:
                 break
         if added >= 12:
             break
@@ -227,8 +377,20 @@ def scan_for_new_sources(sources, max_scan=8, timeout=8):
 # ════════════════════════════════════════════════════
 # fetch page — با HEADERS صحیح
 # ════════════════════════════════════════════════════
-def fetch_page(url, timeout=15):
-    """دریافت محتوای صفحه با تنظیمات مناسب"""
+def fetch_page(url, timeout=15, allow_browser=True):
+    """دریافت محتوای صفحه — اول HTTP ساده؛ اگر خالی/بلاک شد و Playwright بود، مرورگر headless."""
+    html_text = _fetch_plain(url, timeout=timeout)
+    if html_text and not (allow_browser and HAS_PLAYWRIGHT):
+        return html_text
+    # اگر HTTP ساده چیزی نداد (بلاک/JS) یا صفحه تقریباً خالی بود → مرورگر headless
+    if not html_text or (allow_browser and HAS_PLAYWRIGHT and len(html_text) < 20000):
+        rendered = _pw_fetch(url)
+        if rendered:
+            return rendered
+    return html_text
+
+
+def _fetch_plain(url, timeout=15):
     try:
         req = Request(
             url,
@@ -382,8 +544,18 @@ class DynamicJobParser(HTMLParser):
 
 NOISE_COMPANY_RE = re.compile(
     r'^(apply|view|see|read|more|all|browse|find|search|save|share|home|about|contact|login|sign|'
-    r'jobs|job|vacancy|vacancies|career|careers|new|latest|featured|remote|full.?time|part.?time)$', re.I
+    r'jobs|job|vacancy|vacancies|career|careers|new|latest|featured|remote|full.?time|part.?time|'
+    r'session expired|error|page not found|not found|menu|navigation)$', re.I
 )
+
+
+def _same_text(a, b):
+    """آیا دو متن تقریباً یکی هستند؟ (برای رد کردن عنوان به‌عنوان شرکت)"""
+    a = re.sub(r'\W+', ' ', (a or '')).lower().strip()
+    b = re.sub(r'\W+', ' ', (b or '')).lower().strip()
+    if not a or not b:
+        return False
+    return a == b or a[:40] == b[:40] or a in b or b in a
 
 
 # الگوی «شرکت: X» یا «Company: X» در متن لینک/عنوان
@@ -391,15 +563,21 @@ COMPANY_PREFIX_RE = re.compile(r'(?:شرکت|کمپانی|company|employer|organ
 
 
 def guess_company(link_info):
-    """حدس نام شرکت از متن لینک و عنوان نزدیک."""
-    for src in (link_info.get("text", ""), link_info.get("near_company", "")):
+    """حدس نام شرکت از متن لینک و عنوان نزدیک — عنوانِ خود آگهی هرگز شرکت نیست."""
+    title = link_info.get("text", "")
+    for src in (title, link_info.get("near_company", "")):
         m = COMPANY_PREFIX_RE.search(src)
         if m:
             return m.group(1).strip(" ,-–|·")[:80]
     near = link_info.get("near_company", "")
-    if near and 3 <= len(near) <= 80 and not NOISE_COMPANY_RE.match(near):
+    if near and 3 <= len(near) <= 80 and not NOISE_COMPANY_RE.match(near) and not _same_text(near, title):
         return near[:80]
     return ""
+
+
+def _strip_session_ids(url):
+    """حذف jsessionid و مسیرهای session از URL — key بهتر برای dedup"""
+    return url.split(";jsessionid=")[0].split(";JSESSIONID=")[0].split(";sid=")[0].split(";CFID=")[0]
 
 
 def extract_jobs_from_html(html, source_info):
@@ -594,6 +772,7 @@ def search_source(source, on_progress=None):
     """جستجو در یک منبع. on_progress(url, keyword) قبل از هر fetch صدا زده می‌شود."""
     all_jobs = []
     urls = source.get("search_urls") or [source["url"]]
+    needs_js = bool(source.get("needs_js"))
 
     for i, url in enumerate(urls, 1):
         keyword = _guess_keyword(url)
@@ -601,14 +780,22 @@ def search_source(source, on_progress=None):
         if on_progress:
             on_progress(url, keyword)
 
-        html = fetch_page(url)
+        if needs_js and HAS_PLAYWRIGHT:
+            # منابع JS-heavy مستقیم با مرورگر headless — HTTP ساده اتلاف وقت است
+            html = _pw_fetch(url)
+            if html is None:
+                html = _fetch_plain(url)
+        else:
+            html = fetch_page(url)
+
         if html:
             jobs = extract_jobs_from_html(html, source)
             print(f"       → {len(jobs)} آگهی از این صفحه", flush=True)
             all_jobs.extend(jobs)
             time.sleep(0.5)
         else:
-            print(f"       ⚠️ پاسخی دریافت نشد (مسدودسازی یا نیاز به JS)", flush=True)
+            hint = "نیاز به مرورگر headless (Playwright نصب نیست)" if needs_js else "مسدودسازی یا نیاز به JS"
+            print(f"       ⚠️ پاسخی دریافت نشد ({hint})", flush=True)
 
     return all_jobs
 
@@ -672,11 +859,11 @@ def main():
         print(f"    {status} مجموعاً {len(jobs)} آگهی یافت شد از {name}", flush=True)
         time.sleep(0.3)
 
-    # حذف تکراری‌ها بر اساس URL یا title+company
+    # حذف تکراری‌ها بر اساس URL (بدون session id) یا title+company
     seen_keys = set()
     unique_jobs = []
     for j in all_jobs:
-        url = (j.get("url") or "").split("?")[0]
+        url = _strip_session_ids((j.get("url") or "").split("?")[0])
         key = url if url.startswith("http") else (j.get("title", "")[:50].lower(), j.get("company", "")[:30].lower(), j.get("source", "").lower())
         if key in seen_keys:
             continue
@@ -705,6 +892,10 @@ def main():
     bank = record_discovered_sources(all_sources, active_sources, per_source_jobs)
     n_proven = sum(1 for v in bank.values() if v.get("total_found", 0) > 0)
     print(f"\n🏦 بانک منابع آگهی‌دار بروزرسانی شد — {n_proven} منبع با آگهی واقعی ثبت شده")
+
+    # ── تاریخچهٔ بازده برای تب «📈 بازده منابع» ──
+    record_yield_history(per_source_jobs)
+    _close_browser()
 
     # خلاصه
     print(f"\n  📊 خلاصه")

@@ -456,11 +456,119 @@ def nav_html(active):
         return "active" if name == active else ""
     return f"""<nav class="tabs">
   <a class="{cls('dashboard')}" href="/">گزارش زنده</a>
+  <a class="{cls('yield')}" href="/yield">📈 بازده منابع</a>
   <a class="{cls('files')}" href="/files">📁 فایل‌ها</a>
   <a class="{cls('reports')}" href="/reports">📑 گزارش‌ها</a>
   <a class="{cls('settings')}" href="/settings">⚙️ تنظیمات</a>
   <a class="{cls('about')}" href="/about">ℹ️ توضیحات</a>
 </nav>"""
+
+
+def render_yield():
+    """تب آمار: کدام منبع‌ها واقعاً آگهی می‌دهند؟ (بر اساس SOURCE_YIELD_HISTORY.json)"""
+    stats = {}
+    history_len = 0
+    if HAS_JOB_CRAWLER:
+        try:
+            history_len = len(_jc.load_yield_history())
+            stats = _jc.yield_stats()
+        except Exception:
+            stats = {}
+
+    # بانک منابع اثبات‌شده (discovered) — total_found تجمعی
+    bank = {}
+    if HAS_JOB_CRAWLER:
+        try:
+            bank = _jc.load_discovered()
+        except Exception:
+            bank = {}
+
+    sources = read_sources() or []
+    idx_by_name = {s.get("name", ""): i for i, s in enumerate(sources)}
+
+    if not stats:
+        body = ('<p class="empty">هنوز تاریخچه‌ای نیست — یک‌بار «اجرای پایپ‌لاین» را بزن تا '
+                'بازده هر منبع ثبت شود.</p>')
+    else:
+        rows = []
+        ranked = sorted(stats.items(), key=lambda kv: -kv[1]["total"])
+        for rank, (name, st) in enumerate(ranked, 1):
+            bank_entry = bank.get(name, {})
+            bank_total = bank_entry.get("total_found", 0)
+            idx = idx_by_name.get(name, -1)
+            toggle = ""
+            if idx >= 0:
+                enabled = sources[idx].get("enabled", True)
+                toggle = f"""
+                <form method="post" action="/settings/sources/toggle" style="display:inline">
+                  <input type="hidden" name="index" value="{idx}">
+                  <button class="btn" style="padding:4px 10px;font-size:.78rem" type="submit">
+                    {"خاموش" if enabled else "روشن"}
+                  </button>
+                </form>"""
+            quality = "🥇" if st["total"] >= 20 else ("✅" if st["total"] > 0 else "🚫")
+            rows.append(
+                f"<tr>"
+                f"<td>{rank}</td>"
+                f"<td>{quality} {html.escape(name)}</td>"
+                f"<td>{st['runs']}</td>"
+                f"<td>{st['with_jobs']} ({st['rate']}%)</td>"
+                f"<td>{st['avg']}</td>"
+                f"<td><strong>{st['total']}</strong></td>"
+                f"<td>{bank_total}</td>"
+                f"<td>{st['last']} <span class='hint'>({html.escape(st['last_date'][:16])})</span></td>"
+                f"<td>{toggle}</td>"
+                f"</tr>"
+            )
+        body = f"""
+        <table class="files"><thead><tr>
+          <th>#</th><th>منبع</th><th>اجرا</th><th>آگهی‌دار</th><th>میانگین</th>
+          <th>مجموع</th><th>بانک</th><th>آخرین اجرا</th><th></th>
+        </tr></thead><tbody>{''.join(rows)}</tbody></table>
+        <p class="hint">«مجموع» = همهٔ آگهی‌های یافت‌شده از این منبع در کل تاریخچه ·
+        «بانک» = total_found در بانک discovered · «🚫» = هنوز هیچ آگهی‌ای نداده
+        (اگر چند اجرا صفر داد، خاموشش کن تا سرعت اجرا بالا برود) ·
+        منابع پربازده به‌طور خودکار اولِ جستجوی اجرای بعدی قرار می‌گیرند.</p>"""
+
+    proven = sum(1 for v in bank.values() if v.get("total_found", 0) > 0)
+    discovered_cnt = sum(1 for k in bank if k.startswith("[کشف‌شده]"))
+    summary = f"""
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:20px">
+      <div class="card" style="text-align:center"><div style="font-size:1.5rem">🗂</div>
+        <div style="font-size:1.4rem;font-weight:700">{len(sources)}</div>
+        <div class="hint">منبع در sources.json</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:1.5rem">⭐</div>
+        <div style="font-size:1.4rem;font-weight:700">{proven}</div>
+        <div class="hint">منبع اثبات‌شدهٔ آگهی‌دار</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:1.5rem">🛰</div>
+        <div style="font-size:1.4rem;font-weight:700">{discovered_cnt}</div>
+        <div class="hint">دامنهٔ کشف‌شدهٔ خودکار</div></div>
+      <div class="card" style="text-align:center"><div style="font-size:1.5rem">🕘</div>
+        <div style="font-size:1.4rem;font-weight:700">{history_len}</div>
+        <div class="hint">اجرای ثبت‌شده</div></div>
+    </div>"""
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — بازده منابع</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <h1>📈 بازده منابع در طول زمان</h1>
+  {nav_html('yield')}
+</header>
+<main>
+  {summary}
+  <section>
+    <h2>کدام سایت‌ها واقعاً آگهی می‌دهند؟</h2>
+    {body}
+  </section>
+</main>
+</body></html>"""
 
 
 def render_files():
@@ -1241,6 +1349,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if parsed.path == "/":
             self._send(render_index())
+        elif parsed.path == "/yield":
+            self._send(render_yield())
         elif parsed.path == "/files":
             self._send(render_files())
         elif parsed.path == "/settings":
