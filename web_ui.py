@@ -33,6 +33,8 @@ ENV_PATH = os.path.join(BASE, ".env")
 GITIGNORE_PATH = os.path.join(BASE, ".gitignore")
 SOURCES_PATH = os.path.join(BASE, "sources.json")
 
+import unified_report
+
 try:
     import job_crawler as _jc  # برای استفاده‌ی مجدد از load_sources/save_sources، بدون تکرار کد
     HAS_JOB_CRAWLER = True
@@ -1858,18 +1860,6 @@ def render_about():
 
 
 MEM_DIR = os.path.join(BASE, "memory")
-CRAWLER_RESULTS_PATH = os.path.join(MEM_DIR, "CRAWLER_RESULTS.json")
-
-
-def load_crawler_jobs():
-    """آگهی‌های آخرین اجرای job_crawler.py را می‌خواند (اگر وجود داشته باشد)."""
-    if not os.path.exists(CRAWLER_RESULTS_PATH):
-        return None
-    try:
-        with open(CRAWLER_RESULTS_PATH, "r", encoding="utf-8") as f:
-            return json.load(f).get("jobs", [])
-    except Exception:
-        return []
 
 
 def score_job_for_applicant(job, applicant):
@@ -1888,18 +1878,6 @@ def score_job_for_applicant(job, applicant):
     return score
 
 
-def matched_jobs_for_applicant(applicant, jobs, limit=200):
-    scored = [(score_job_for_applicant(j, applicant), j) for j in (jobs or [])]
-    scored = [(s, j) for s, j in scored if s > 0]
-    scored.sort(key=lambda x: x[0], reverse=True)
-    out = []
-    for s, j in scored[:limit]:
-        jj = dict(j)
-        jj["_score"] = s
-        out.append(jj)
-    return out
-
-
 def build_applicant_excel(applicant, jobs):
     wb = Workbook()
     ws = wb.active
@@ -1908,19 +1886,25 @@ def build_applicant_excel(applicant, jobs):
     from openpyxl.styles import Font, PatternFill, Alignment
     header_font = Font(bold=True, color="FFFFFF")
     header_fill = PatternFill(start_color="1B4F72", end_color="1B4F72", fill_type="solid")
-    headers = ["#", "عنوان شغل", "شرکت", "کشور", "منبع", "لینک آگهی", "امتیاز تطبیق"]
+    headers = ["#", "عنوان شغل", "شرکت", "کشور", "منبع", "لینک آگهی", "امتیاز تطبیق",
+               "وضعیت اقدام", "دلیل تطبیق"]
     ws.append(headers)
     for cell in ws[1]:
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
+    st_fa = {k: v["fa"] for k, v in unified_report.APP_STATUS.items()}
     for i, j in enumerate(jobs, 1):
         ws.append([i, j.get("title", ""), j.get("company", "نامشخص"),
-                    j.get("country", ""), j.get("source", ""), j.get("url", ""), j.get("_score", 0)])
-    widths = {"A": 5, "B": 45, "C": 25, "D": 10, "E": 20, "F": 45, "G": 12}
+                   j.get("country", ""), j.get("source", ""), j.get("url", ""),
+                   j.get("score", j.get("_score", 0)),
+                   st_fa.get(j.get("app_status", ""), ""),
+                   j.get("_why", "")])
+    widths = {"A": 5, "B": 45, "C": 25, "D": 10, "E": 20, "F": 45, "G": 12,
+              "H": 15, "I": 30}
     for col, w in widths.items():
         ws.column_dimensions[col].width = w
-    ws.auto_filter.ref = f"A1:G{len(jobs)+1}"
+    ws.auto_filter.ref = f"A1:I{len(jobs)+1}"
     return wb
 
 
@@ -1990,9 +1974,171 @@ Keep the tone professional and honest. Do NOT invent specific work-history facts
 achievements beyond the profession/skills given above — keep claims general and truthful."""
 
 
-def render_reports(applicant_id=None, message=None, error=None):
+APPLICANT_COUNTRIES = ["FI", "SE", "NO", "DK", "DE", "NL", "CA", "AU", "GB", "IE", "ALL"]
+
+APP_BANK_PATH = os.path.join(MEM_DIR, "APPLICATION_BANK.json")
+
+
+def _load_app_bank():
+    if not os.path.exists(APP_BANK_PATH):
+        return {"applications": []}
+    try:
+        with open(APP_BANK_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"applications": []}
+
+
+def _save_app_bank(bank):
+    os.makedirs(MEM_DIR, exist_ok=True)
+    with open(APP_BANK_PATH, "w", encoding="utf-8") as f:
+        json.dump(bank, f, ensure_ascii=False, indent=2)
+
+
+def _upsert_application(applicant, url, title, employer, country, status):
+    """
+    ثبت یا به‌روزرسانی یک اقدام در APPLICATION_BANK.
+
+    اگر قبلاً برای همین (متقاضی، آدرس آگهی) چیزی ثبت شده باشد، فقط وضعیت
+    عوض می‌شود و رکورد جدیدی ساخته نمی‌شود — وگرنه بانک پر از تکراری
+    می‌شد. کلید تطبیق URL است چون شناسهٔ آگهی پایدار نیست.
+    """
+    bank = _load_app_bank()
+    apps = bank.setdefault("applications", [])
+    now = datetime.now()
+
+    def same(rec):
+        return unified_report._norm(rec.get("job_url") or rec.get("url")) == \
+               unified_report._norm(url)
+
+    for rec in apps:
+        if unified_report._matches_applicant(rec, {"id": applicant,
+                                                    "name": applicant,
+                                                    "name_fa": applicant}) and same(rec):
+            old = rec.get("status", "?")
+            rec["status"] = status
+            rec["job"] = title or rec.get("job", "")
+            rec["employer"] = employer or rec.get("employer", "")
+            rec["country"] = country or rec.get("country", "")
+            rec["updated_at"] = now.strftime("%Y-%m-%d %H:%M")
+            rec.setdefault("history", []).append(
+                {"at": rec["updated_at"], "from": old, "to": status})
+            if status not in ("PLANNED", "PREPARING") and not rec.get("sent_date"):
+                rec["sent_date"] = rec["updated_at"][:10]
+            _save_app_bank(bank)
+            return True, f"وضعیت از {old} به {status} تغییر کرد"
+
+    apps.append({
+        "id": f"JOB-{now.strftime('%Y%m%d%H%M%S')}-{len(apps)+1}",
+        "applicant": applicant,
+        "employer": employer,
+        "job": title,
+        "country": country,
+        "job_url": url,
+        "url": url,
+        "status": status,
+        "sent_date": "",
+        "created_at": now.strftime("%Y-%m-%d %H:%M"),
+        "reply_deadline": "",
+        "history": [{"at": now.strftime("%Y-%m-%d %H:%M"), "from": "", "to": status}],
+    })
+    _save_app_bank(bank)
+    return True, ""
+
+
+def _job_card(job, aid, country):
+    """
+    یک ردیف آگهی: عنوان، شرکت، کشور، لینک مستقیم و دکمه‌های اقدام.
+
+    لینک آگهی واقعاً کلیک‌پذیر است (target=_blank) — کاربر لازم نیست بین
+    فایل‌ها بگردد تا آدرسش را پیدا کند.
+    """
+    title = html.escape(job.get("title") or "بدون عنوان")
+    company = html.escape(job.get("company") or "نامشخص")
+    url = job.get("url") or ""
+    ctry = job.get("country") or ""
+    ctry_fa = unified_report.COUNTRY_FA.get(ctry, ctry)
+    score = job.get("score", 0)
+    why = job.get("_why") or ""
+    applied = job.get("applied")
+
+    # ── ستون وضعیت اقدام ──
+    if applied:
+        meta = unified_report.APP_STATUS.get(job.get("app_status") or "", {})
+        badge = (f'<span class="badge" style="background:var(--ok)">'
+                 f'{meta.get("emoji","📋")} {html.escape(meta.get("fa","اقدام‌شده"))}</span>')
+        action_cell = (f'<form method="post" action="/reports/apply" style="display:inline">'
+                       f'<input type="hidden" name="applicant" value="{html.escape(aid)}">'
+                       f'<input type="hidden" name="url" value="{html.escape(url)}">'
+                       f'<input type="hidden" name="title" value="{html.escape(job.get("title",""))}">'
+                       f'<input type="hidden" name="employer" value="{html.escape(job.get("company",""))}">'
+                       f'<select name="status" style="padding:4px 6px;font-size:.8rem" onchange="this.form.submit()">'
+                       + "".join(f'<option value="{k}"{" selected" if k==job.get("app_status") else ""}>{v["emoji"]} {v["fa"]}</option>'
+                                 for k, v in unified_report.APP_STATUS.items())
+                       + f'</select></form>'
+                       f'<a class="btn ghost" style="padding:4px 8px;font-size:.75rem" '
+                       f'href="{html.escape(url)}" target="_blank" rel="noopener">↗ آگهی</a>')
+    else:
+        badge = ""
+        action_cell = (
+            f'<a class="btn" style="padding:5px 10px;font-size:.78rem" '
+            f'href="{html.escape(url)}" target="_blank" rel="noopener">👁 دیدن آگهی</a> '
+            f'<form method="post" action="/reports/apply" style="display:inline">'
+            f'<input type="hidden" name="applicant" value="{html.escape(aid)}">'
+            f'<input type="hidden" name="url" value="{html.escape(url)}">'
+            f'<input type="hidden" name="title" value="{html.escape(job.get("title",""))}">'
+            f'<input type="hidden" name="employer" value="{html.escape(job.get("company",""))}">'
+            f'<input type="hidden" name="country" value="{html.escape(ctry)}">'
+            f'<input type="hidden" name="status" value="PLANNED">'
+            f'<button class="btn primary" style="padding:5px 10px;font-size:.78rem" '
+            f'type="submit">🚀 اقدام کن</button></form>'
+            f'<form method="post" action="/reports/letter" style="display:inline">'
+            f'<input type="hidden" name="applicant" value="{html.escape(aid)}">'
+            f'<input type="hidden" name="url" value="{html.escape(url)}">'
+            f'<input type="hidden" name="country" value="{html.escape(ctry)}">'
+            f'<button class="btn ghost" style="padding:5px 10px;font-size:.78rem" '
+            f'type="submit">✍️ کاورلتر</button></form>')
+
+    link = (f'<a href="{html.escape(url)}" target="_blank" rel="noopener" '
+            f'style="color:var(--accent);text-decoration:none">{title}</a>'
+            if url else title)
+
+    return f"""
+    <tr>
+      <td style="font-weight:700;color:var(--accent)">{score}</td>
+      <td>{link}<div style="font-size:.72rem;color:var(--muted)">{why}</div>{badge}</td>
+      <td>{company}</td>
+      <td>{html.escape(ctry_fa)}</td>
+      <td style="font-size:.72rem;color:var(--muted)">{html.escape(job.get('source','')[:26])}</td>
+      <td style="white-space:nowrap">{action_cell}</td>
+    </tr>"""
+
+
+def _next_step_block(steps):
+    if not steps:
+        return ""
+    rows = []
+    for s in steps:
+        rows.append(f"""
+        <li style="display:flex;gap:10px;align-items:flex-start;padding:9px 0;
+                   border-bottom:1px solid var(--border)">
+          <span style="font-size:1.15rem">{s['emoji']}</span>
+          <span style="flex:1">{html.escape(s['text'])}</span>
+          {f'<a class="btn ghost" style="padding:3px 10px;font-size:.75rem" href="{html.escape(s["href"])}" '
+             f'target="_blank" rel="noopener">{html.escape(s["cta"])}</a>' if s.get('href') else ''}
+        </li>""")
+    return f"""
+    <div style="background:linear-gradient(135deg,var(--surface2),var(--surface));
+                border:1px solid var(--border);border-radius:var(--radius);padding:14px 18px">
+      <h3 style="margin:0 0 6px">🎯 الان چه کار کن</h3>
+      <ul style="list-style:none;margin:0;padding:0">{''.join(rows)}</ul>
+    </div>"""
+
+
+def render_reports(applicant_id=None, message=None, error=None, country="FI"):
+    import unified_report
+
     applicants = load_applicants()
-    jobs = load_crawler_jobs()  # None = crawler never run; [] = ran but nothing/no match stored
 
     msg_html = ""
     if message:
@@ -2000,68 +2146,157 @@ def render_reports(applicant_id=None, message=None, error=None):
     if error:
         msg_html += f'<div class="warn">{html.escape(error)}</div>'
 
+    # ── فیلتر کشور ──
+    country = (country or "FI").upper()
+    if country not in APPLICANT_COUNTRIES:
+        country = "ALL"
+    csel = "".join(
+        f'<option value="{c}"{" selected" if c == country else ""}>'
+        f'{("همهٔ کشورها" if c == "ALL" else unified_report.COUNTRY_FA.get(c, c))}</option>'
+        for c in APPLICANT_COUNTRIES)
+
     applicant = next((a for a in applicants if a.get("id") == applicant_id), None) if applicant_id else None
 
     if not applicant:
+        # ── نمای کلی: هر متقاضی با شمارش زنده ──
         if not applicants:
             body = '<p class="empty">هنوز متقاضی‌ای در تنظیمات ثبت نشده.</p>'
         else:
-            cards = "".join(f"""
-              <a class="card applicant" style="text-decoration:none;display:block"
-                 href="/reports?applicant={html.escape(a['id'])}">
-                <div class="emoji">{html.escape(a.get('emoji','👤'))}</div>
-                <div class="name">{html.escape(a.get('name_fa') or a.get('name',''))}</div>
-                <div class="meta">{html.escape(a.get('profession',''))}</div>
-              </a>""" for a in applicants)
+            cards = ""
+            for a in applicants:
+                d = unified_report.applicant_dossier(a, limit=1, country=country)
+                s = d["stats"]
+                cards += f"""
+                <a class="card applicant" style="text-decoration:none;display:block"
+                   href="/reports?applicant={html.escape(a['id'])}&country={country}">
+                  <div class="emoji">{html.escape(a.get('emoji','👤'))}</div>
+                  <div class="name">{html.escape(a.get('name_fa') or a.get('name',''))}</div>
+                  <div class="meta">{html.escape(a.get('profession',''))}</div>
+                  <div style="margin-top:10px;font-size:.8rem;color:var(--muted);line-height:1.8">
+                    🎯 <strong style="color:var(--accent)">{s['jobs_matched']}</strong> آگهی تطبیقی<br>
+                    🚀 {s['applied']} اقدام‌شده · {s['open_apps']} در جریان<br>
+                    📨 {s['emails_found']} ایمیل شغلی
+                  </div>
+                </a>"""
             body = f'<div class="grid">{cards}</div>'
         content = f"""
-        <section><h2>گزارش هر متقاضی را انتخاب کن</h2>{body}</section>"""
+        <section>
+          <h2>هر متقاضی چه دارد؟</h2>
+          <p class="hint">همهٔ آگهی‌ها، درخواست‌ها، ایمیل‌ها و یادآورهای هر نفر
+             از همهٔ بانک‌ها جمع شده — دیگر لازم نیست بین فایل‌ها بگردی.</p>
+          {body}
+        </section>"""
     else:
         aid = applicant["id"]
-        if jobs is None:
-            job_section = ('<p class="empty">هنوز crawler اجرا نشده. از تب داشبورد، «اجرای پایپ‌لاین» '
-                            'را بزن تا آگهی جمع‌آوری شود، بعد دوباره اینجا را باز کن.</p>')
+        d = unified_report.applicant_dossier(applicant, country=country)
+        s = d["stats"]
+
+        # ── کارت‌های آمار ──
+        stat_cards = f"""
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:10px">
+          <div class="card" style="text-align:center;padding:12px 8px">
+            <div style="font-size:1.5rem">🎯</div>
+            <div style="font-size:1.7rem;font-weight:700">{s['jobs_matched']}</div>
+            <div style="color:var(--muted);font-size:.8rem">آگهی تطبیقی</div></div>
+          <div class="card" style="text-align:center;padding:12px 8px">
+            <div style="font-size:1.5rem">🚀</div>
+            <div style="font-size:1.7rem;font-weight:700">{s['applied']}</div>
+            <div style="color:var(--muted);font-size:.8rem">اقدام‌شده</div></div>
+          <div class="card" style="text-align:center;padding:12px 8px">
+            <div style="font-size:1.5rem">📤</div>
+            <div style="font-size:1.7rem;font-weight:700">{s['open_apps']}</div>
+            <div style="color:var(--muted);font-size:.8rem">در جریان</div></div>
+          <div class="card" style="text-align:center;padding:12px 8px">
+            <div style="font-size:1.5rem">📬</div>
+            <div style="font-size:1.7rem;font-weight:700">{s['emails_found']}</div>
+            <div style="color:var(--muted);font-size:.8rem">ایمیل شغلی</div></div>
+          <div class="card" style="text-align:center;padding:12px 8px;
+                  {'border-color:var(--err)' if s['overdue'] else ''}">
+            <div style="font-size:1.5rem">🚨</div>
+            <div style="font-size:1.7rem;font-weight:700;color:{'var(--err)' if s['overdue'] else 'inherit'}">{s['overdue']}</div>
+            <div style="color:var(--muted);font-size:.8rem">سررسید گذشته</div></div>
+        </div>"""
+
+        # ── جدول آگهی‌ها ──
+        if d["jobs"]:
+            rows = "".join(_job_card(j, aid, country) for j in d["jobs"])
+            job_section = f"""
+            <table class="files"><thead><tr>
+              <th style="width:44px">امتیاز</th><th>عنوان و شرکت</th>
+              <th>شرکت</th><th>کشور</th><th>منبع</th><th>اقدام</th>
+            </tr></thead><tbody>{rows}</tbody></table>
+            <p class="hint">امتیاز = تطبیق کلیدواژه + معادل‌های فنلاندی/سوئدی.
+               آگهی‌های اقدام‌شده بالاتر می‌آیند.</p>"""
         else:
-            matched = matched_jobs_for_applicant(applicant, jobs)
-            if not matched:
-                job_section = '<p class="empty">هیچ آگهی‌ای با کلیدواژه‌های این متقاضی تطبیق نداشت.</p>'
-            else:
-                rows = []
-                for i, j in enumerate(matched[:50]):
-                    rows.append(f"""
-                    <tr>
-                      <td>{i+1}</td>
-                      <td>{html.escape(j.get('title','')[:70])}</td>
-                      <td>{html.escape(j.get('company') or 'نامشخص')}</td>
-                      <td>{html.escape(j.get('country',''))}</td>
-                      <td>{html.escape(j.get('source',''))}</td>
-                      <td>{j.get('_score',0)}</td>
-                      <td>
-                        <form method="post" action="/reports/letter" style="display:inline">
-                          <input type="hidden" name="id" value="{html.escape(aid)}">
-                          <input type="hidden" name="job_index" value="{i}">
-                          <button class="btn" style="padding:5px 12px;font-size:.82rem" type="submit">✍️ کاور لتر + ایمیل</button>
-                        </form>
-                      </td>
-                    </tr>""")
-                job_section = f"""
-                <table class="files"><thead><tr>
-                  <th>#</th><th>عنوان</th><th>شرکت</th><th>کشور</th><th>منبع</th><th>امتیاز</th><th></th>
-                </tr></thead><tbody>{''.join(rows)}</tbody></table>
-                <p class="hint">امتیاز = تطبیق کلیدواژه (نه اصالت‌سنجی واقعی — توضیح کامل در تب «ℹ️ توضیحات»)</p>
-                """
+            job_section = (
+                '<p class="empty">هیچ آگهی تطبیقی در این کشور نیست. '
+                'کشور را از فیلتر بالا عوض کن یا crawler را اجرا کن.</p>')
+
+        # ── درخواست‌ها ──
+        if d["applications"]:
+            arows = ""
+            for a in d["applications"]:
+                meta = unified_report.APP_STATUS.get(a.get("status", ""), {})
+                dl = a.get("reply_deadline") or ""
+                overdue = ""
+                if dl and a.get("status") in ("SENT", "FOLLOW_UP"):
+                    try:
+                        if datetime.fromisoformat(dl) < datetime.now():
+                            overdue = '<span style="color:var(--err);font-size:.75rem">⏰ مهلت گذشته</span>'
+                    except Exception:
+                        pass
+                arows += f"""
+                <tr>
+                  <td>{meta.get('emoji','📋')} {html.escape(meta.get('fa', a.get('status','')))}</td>
+                  <td>{html.escape(a.get('job','')[:60])}</td>
+                  <td>{html.escape(a.get('employer','')[:30])}</td>
+                  <td style="font-size:.78rem">{html.escape(a.get('sent_date',''))}
+                      {overdue}</td>
+                </tr>"""
+            app_section = f"""
+            <table class="files"><thead><tr>
+              <th>وضعیت</th><th>موقعیت</th><th>کارفرما</th><th>تاریخ</th>
+            </tr></thead><tbody>{arows}</tbody></table>"""
+        else:
+            app_section = '<p class="empty">هنوز اقدامی ثبت نشده. روی «🚀 اقدام کن» هر آگهی بزن.</p>'
+
+        # ── ایمیل‌ها ──
+        if d["emails"]:
+            erows = ""
+            for e in d["emails"][:10]:
+                fr = (e.get("from") or "").strip()
+                mailto = f"mailto:{fr}" if fr else "#"
+                erows += f"""
+                <tr>
+                  <td style="font-size:.78rem;white-space:nowrap">{html.escape((e.get('date') or '')[:16])}</td>
+                  <td>{html.escape(e.get('category',''))}</td>
+                  <td>{html.escape((e.get('subject') or '')[:66])}</td>
+                  <td><a href="{html.escape(mailto)}" style="color:var(--accent)">{html.escape(fr[:38])}</a></td>
+                </tr>"""
+            email_section = f"""
+            <table class="files"><thead><tr>
+              <th>تاریخ</th><th>دسته</th><th>موضوع</th><th>فرستنده</th>
+            </tr></thead><tbody>{erows}</tbody></table>"""
+        else:
+            email_section = '<p class="empty">ایمیل شغلی برای این شخص پیدا نشده.</p>'
 
         content = f"""
         <section>
-          <h2>{html.escape(applicant.get('emoji','👤'))} گزارش {html.escape(applicant.get('name_fa') or applicant.get('name',aid))}</h2>
           <p><a href="/reports">← بازگشت به لیست متقاضی‌ها</a></p>
-          <p style="margin-top:14px">
-            <a class="btn" href="/reports/excel?applicant={html.escape(aid)}">📊 دانلود گزارش اکسل این متقاضی</a>
-          </p>
+          {stat_cards}
+          <div style="margin-top:16px">{_next_step_block(d['next_steps'])}</div>
         </section>
         <section>
-          <h2>آگهی‌های تطبیق‌یافته</h2>
+          <h2>🎯 آگهی‌های تطبیق‌یافته</h2>
           {job_section}
+        </section>
+        <section>
+          <h2>📤 درخواست‌های ثبت‌شده</h2>
+          {app_section}
+        </section>
+        <section>
+          <h2>📬 ایمیل‌های شغلی</h2>
+          {email_section}
         </section>"""
 
     return f"""<!doctype html>
@@ -2078,6 +2313,15 @@ def render_reports(applicant_id=None, message=None, error=None):
   {nav_html('reports', 'job')}
 </header>
 <main>
+  <div class="card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px">
+    <strong>🌍 کشور:</strong>
+    <select onchange="location.href='/reports{('?applicant=' + html.escape(aid) + '&') if applicant else '?'}country=' + this.value">
+      {csel}
+    </select>
+    {f'<a class="btn" href="/reports/excel?applicant={html.escape(aid)}&country={country}">📊 دانلود اکسل همین متقاضی</a>' if applicant else ''}
+    <span style="flex:1"></span>
+    <span class="hint" style="margin:0">همهٔ بانک‌ها یکجا: کراولر + اسپانسر + درخواست + ایمیل + یادآور</span>
+  </div>
   {msg_html}
   {content}
 </main>
@@ -2157,21 +2401,23 @@ class Handler(BaseHTTPRequestHandler):
             aid = (qs.get("applicant") or [None])[0]
             msg = (qs.get("msg") or [None])[0]
             err = (qs.get("err") or [None])[0]
-            self._send(render_reports(applicant_id=aid, message=msg, error=err))
+            ctry = (qs.get("country") or ["FI"])[0]
+            self._send(render_reports(applicant_id=aid, message=msg, error=err, country=ctry))
         elif parsed.path == "/reports/excel":
             aid = (qs.get("applicant") or [None])[0]
+            ctry = (qs.get("country") or ["FI"])[0]
             applicants = load_applicants()
             applicant = next((a for a in applicants if a.get("id") == aid), None)
             if not applicant:
                 self._send(render_reports(error="متقاضی پیدا نشد."), status=404)
                 return
             if not HAS_OPENPYXL:
-                self._send(render_reports(applicant_id=aid, error="openpyxl نصب نیست، اکسل ساخته نمی‌شود."))
+                self._send(render_reports(applicant_id=aid, error="openpyxl نصب نیست، اکسل ساخته نمی‌شود.", country=ctry))
                 return
-            jobs = load_crawler_jobs() or []
-            matched = matched_jobs_for_applicant(applicant, jobs)
+            matched = unified_report.applicant_dossier(applicant, country=ctry)["jobs"]
             if not matched:
-                self._send(render_reports(applicant_id=aid, error="آگهی تطبیق‌یافته‌ای برای ساخت اکسل وجود ندارد."))
+                self._send(render_reports(applicant_id=aid, country=ctry,
+                                          error="آگهی تطبیق‌یافته‌ای برای ساخت اکسل وجود ندارد."))
                 return
             wb = build_applicant_excel(applicant, matched)
             os.makedirs(DASHBOARD_DIR, exist_ok=True)
@@ -2282,6 +2528,32 @@ class Handler(BaseHTTPRequestHandler):
             _vt.delete_act(f.get("applicant", "").strip(), f.get("id", "0"))
             self._redirect("/visa?applicant=" + urllib.parse.quote(f.get("applicant", "")))
 
+        elif raw_path == "/reports/apply":
+            # ثبت «اقدام» روی یک آگهی از صفحهٔ گزارش — همان چیزی که
+            # کاربر قبلاً باید دستی در APPLICATION_BANK.json می‌نوشت.
+            f = self._read_form()
+            aid = f.get("applicant", "").strip()
+            url = f.get("url", "").strip()
+            title = f.get("title", "").strip()
+            employer = f.get("employer", "").strip() or "نامشخص"
+            status = (f.get("status") or "PLANNED").strip().upper()
+            ctry = (f.get("country") or "FI").strip().upper()
+            if not aid or not url:
+                self._send(render_reports(error="خطا: متقاضی یا آدرس آگهی مشخص نیست."), status=400)
+                return
+            if status not in unified_report.APP_STATUS:
+                status = "PLANNED"
+
+            ok, note = _upsert_application(aid, url, title, employer, ctry, status)
+            msg = (f"✅ «{title[:48]}» برای «{aid}» ثبت شد — وضعیت: "
+                   f"{unified_report.APP_STATUS[status]['fa']}"
+                   + (f" ({note})" if note else ""))
+            dest = f"/reports?applicant={urllib.parse.quote(aid)}"
+            if not ok:
+                self._send(render_reports(applicant_id=aid, error=msg, country=ctry), status=400)
+                return
+            self._redirect(dest)
+
         elif raw_path == "/settings/applicant":
             form = self._read_form()
             if not form.get("id", "").strip():
@@ -2339,31 +2611,41 @@ class Handler(BaseHTTPRequestHandler):
             write_sources(sources)
             self._send(render_settings(message=f"منبع «{name}» اضافه شد و در اجرای بعدی پایپ‌لاین جستجو می‌شود."))
 
-        elif self.path == "/reports/letter":
+        elif raw_path == "/reports/letter":
             form = self._read_form()
-            aid = form.get("id", "").strip().lower()
-            try:
-                job_index = int(form.get("job_index", "-1"))
-            except ValueError:
-                job_index = -1
+            aid = form.get("id", "").strip().lower() or form.get("applicant", "").strip().lower()
+            ctry = (form.get("country") or "FI").strip().upper()
+            # آدرس آگهی را می‌گیریم نه شمارهٔ ردیف — با عوض شدن فیلتر کشور
+            # یا مرتب‌سازی، index به آگهی دیگری اشاره می‌کرد.
+            job_url = form.get("url", "").strip()
 
             applicants = load_applicants()
             applicant = next((a for a in applicants if a.get("id") == aid), None)
             if not applicant:
-                self._send(render_reports(error="متقاضی پیدا نشد."), status=404)
+                self._send(render_reports(error="متقاضی پیدا نشد.", country=ctry), status=404)
                 return
 
-            jobs = load_crawler_jobs() or []
-            matched = matched_jobs_for_applicant(applicant, jobs)
-            if job_index < 0 or job_index >= len(matched):
-                self._send(render_reports(applicant_id=aid, error="این آگهی پیدا نشد (شاید لیست تغییر کرده — صفحه را رفرش کن)."))
+            if job_url:
+                target = unified_report._norm(job_url)
+                job = next((j for j in unified_report.all_jobs()
+                            if unified_report._norm(j.get("url")) == target), None)
+            else:
+                try:
+                    job_index = int(form.get("job_index", "-1"))
+                except ValueError:
+                    job_index = -1
+                matched = unified_report.applicant_dossier(applicant, country=ctry)["jobs"]
+                job = matched[job_index] if 0 <= job_index < len(matched) else None
+
+            if not job:
+                self._send(render_reports(applicant_id=aid, country=ctry,
+                                          error="این آگهی پیدا نشد (شاید لیست عوض شده — صفحه را رفرش کن)."))
                 return
 
-            job = matched[job_index]
             prompt = build_cover_letter_prompt(applicant, job)
             text, err = call_ai(prompt)
             if err:
-                self._send(render_reports(applicant_id=aid, error=err))
+                self._send(render_reports(applicant_id=aid, error=err, country=ctry))
                 return
 
             os.makedirs(OUTPUT_DIR, exist_ok=True)
