@@ -1974,7 +1974,7 @@ Keep the tone professional and honest. Do NOT invent specific work-history facts
 achievements beyond the profession/skills given above — keep claims general and truthful."""
 
 
-APPLICANT_COUNTRIES = ["FI", "SE", "NO", "DK", "DE", "NL", "CA", "AU", "GB", "IE", "ALL"]
+APPLICANT_COUNTRIES = ["FI", "SE", "NO", "DK", "DE", "AT", "NL", "CA", "AU", "GB", "IE", "ALL"]
 
 APP_BANK_PATH = os.path.join(MEM_DIR, "APPLICATION_BANK.json")
 
@@ -2280,11 +2280,63 @@ def render_reports(applicant_id=None, message=None, error=None, country="FI"):
         else:
             email_section = '<p class="empty">ایمیل شغلی برای این شخص پیدا نشده.</p>'
 
+        # ── لینکدین و راه‌های تماس ──
+        # تا قبل از این، LINKEDIN_DB.json را هیچ کدی نمی‌خواند و پروفایل‌ها
+        # در گزارش نامرئی بودند. حالا از dossier می‌آیند.
+        contact_bits = []
+        for li in d["linkedin"]:
+            nm = html.escape(li.get("name") or applicant.get("name_fa", ""))
+            pf = html.escape(li.get("profession") or "")
+            url = li.get("url") or ""
+            link = (f'<a href="{html.escape(url)}" target="_blank" rel="noopener" '
+                    f'style="color:var(--accent)">{html.escape(url)}</a>' if url else "—")
+            contact_bits.append(
+                f'<div>🔗 <strong>{nm}</strong>'
+                f'{f" — {pf}" if pf else ""}<br>{link}</div>')
+        for em in (applicant.get("emails") or []):
+            if (em or "").strip():
+                contact_bits.append(
+                    f'<div>📧 <a href="mailto:{html.escape(em.strip())}" '
+                    f'style="color:var(--accent)">{html.escape(em.strip())}</a></div>')
+        for li_url in (applicant.get("linkedins") or []):
+            if (li_url or "").strip() and not any(
+                    li_url.strip() in (x.get("url") or "") for x in d["linkedin"]):
+                contact_bits.append(
+                    f'<div>🔗 <a href="{html.escape(li_url.strip())}" target="_blank" '
+                    f'rel="noopener" style="color:var(--accent)">'
+                    f'{html.escape(li_url.strip())}</a> (ثبت‌شده در تنظیمات)</div>')
+        contact_section = ("".join(contact_bits)
+                           if contact_bits else
+                           '<p class="empty">لینکدین یا ایمیلی برای این شخص ثبت نشده.</p>')
+
+        # ── ایمیل‌های ارسالی و پیگیری‌ها ──
+        if d["sent_emails"]:
+            srows = ""
+            for e in d["sent_emails"][:12]:
+                srows += f"""
+                <tr>
+                  <td style="font-size:.78rem;white-space:nowrap">{html.escape((e.get('sent_date') or '')[:10])}</td>
+                  <td>{html.escape(e.get('type',''))}</td>
+                  <td>{html.escape((e.get('subject') or '')[:60])}</td>
+                  <td>{html.escape((e.get('employer') or '')[:30])}</td>
+                  <td>{html.escape(e.get('status',''))}</td>
+                </tr>"""
+            sent_section = f"""
+            <table class="files"><thead><tr>
+              <th>تاریخ</th><th>نوع</th><th>موضوع</th><th>کارفرما</th><th>وضعیت</th>
+            </tr></thead><tbody>{srows}</tbody></table>"""
+        else:
+            sent_section = '<p class="empty">ایمیل ارسالی برای این شخص ثبت نشده.</p>'
+
         content = f"""
         <section>
           <p><a href="/reports">← بازگشت به لیست متقاضی‌ها</a></p>
           {stat_cards}
           <div style="margin-top:16px">{_next_step_block(d['next_steps'])}</div>
+        </section>
+        <section>
+          <h2>🔗 لینکدین و تماس</h2>
+          {contact_section}
         </section>
         <section>
           <h2>🎯 آگهی‌های تطبیق‌یافته</h2>
@@ -2297,6 +2349,10 @@ def render_reports(applicant_id=None, message=None, error=None, country="FI"):
         <section>
           <h2>📬 ایمیل‌های شغلی</h2>
           {email_section}
+        </section>
+        <section>
+          <h2>✉️ ایمیل‌های ارسالی</h2>
+          {sent_section}
         </section>"""
 
     return f"""<!doctype html>

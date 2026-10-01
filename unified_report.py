@@ -367,6 +367,30 @@ def all_jobs():
 # وضعیت اقدام برای هر آگهی (کاربر قبلاً چه کرده؟)
 # ══════════════════════════════════════════════════════════════════
 
+def _load_linkedin(applicant):
+    """
+    پروفایل‌های لینکدین این متقاضی از LINKEDIN_DB.json.
+
+    تا قبل از این، هیچ کدی این فایل را نمی‌خواند — پروفایل‌های لینکدین
+    هر دو نفر (neda-arjmand و tohid-arjmand) در گزارش‌ها نامرئی بودند.
+    """
+    db = _read_json("LINKEDIN_DB.json", {}) or {}
+    out = []
+    for li in (db.get("linkedins") or []):
+        if not isinstance(li, dict):
+            continue
+        # رکورد لینکدین فیلد applicant با کد لاتین دارد («NEDA»)؛
+        # _matches_applicant همان را هم می‌فهمد. URL را هم با
+        # لینک‌های ثبت‌شده در config مقایسه می‌کنیم.
+        if _matches_applicant(li, applicant):
+            out.append({
+                "name": li.get("name") or "",
+                "url": li.get("url") or "",
+                "profession": li.get("profession") or "",
+            })
+    return out
+
+
 def _load_applications():
     ab = _read_json("APPLICATION_BANK.json", {}) or {}
     return ab.get("applications") or []
@@ -386,30 +410,103 @@ def application_state(applications):
 # نمای یکپارچهٔ هر متقاضی
 # ══════════════════════════════════════════════════════════════════
 
+def _applicant_aliases(applicant):
+    """
+    همهٔ نام‌هایی که یک متقاضی در بانک‌های مختلف با آن‌ها ثبت شده است.
+
+    مشکل واقعی: هر بانک با یک قرارداد اسم نوشته —
+      APPLICATION_BANK / EMAIL_TRACKER : «ندا»        (اسم کوتاه)
+      EMAIL_ANALYSIS                   : «ندا_ارجمند» (id کامل config)
+      LINKEDIN_DB                      : «NEDA»        (کد لاتین بزرگ)
+    تطبیق قبلی فقط id کامل را می‌فهمید، پس عملاً داده‌های ندا
+    (۵ درخواست، ۵ ایمیل ارسالی، ۱۲ یادآور) نامرئی بودند و گزارش
+    انگار فقط «یک نفر» را می‌شناخت.
+    """
+    aliases = set()
+    for field in ("id", "name", "name_fa"):
+        v = _norm(applicant.get(field))
+        if v:
+            aliases.add(v)
+            # «ندا ارجمند» → «ندا» و «ارجمند» هم اسم همین شخص‌اند
+            for part in re.split(r"[^a-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff"
+                                 r"\u0600-\u06ff0-9]+", v):
+                if len(part) >= 2:
+                    aliases.add(part)
+    return {a for a in aliases if a}
+
+
+_SHARED_TOKENS = None
+
+
+def _shared_tokens():
+    """
+    توکن‌هایی که بین چند متقاضی مشترک‌اند (مثل نام خانوادگی «ارجمند»).
+
+    این‌ها برای تطبیقِ «اسم داخل مقدار رکورد» ممنوع‌اند؛ وگرنه رکورد
+    «توحید_ارجمند» به‌خاطر «ارجمند» به ندا هم می‌چسبد و هر دو نفر
+    همهٔ ایمیل‌ها را می‌بینند. فقط یک‌بار از config خوانده و کش می‌شود.
+    """
+    global _SHARED_TOKENS
+    if _SHARED_TOKENS is None:
+        try:
+            with open(os.path.join(BASE, "config.json"), encoding="utf-8") as f:
+                apps = (json.load(f) or {}).get("applicants", [])
+        except Exception:
+            apps = []
+        from collections import Counter
+        c = Counter()
+        for a in apps:
+            c.update(set(_applicant_aliases(a)))
+        _SHARED_TOKENS = {t for t, n in c.items() if n > 1}
+    return _SHARED_TOKENS
+
+
 def _matches_applicant(record, applicant):
     """آیا این رکورد به این متقاضی مربوط است؟ نام/ایمیل/linkedin تطبیق داده می‌شود."""
-    aid = _norm(applicant.get("id"))
-    name = _norm(applicant.get("name"))
-    name_fa = _norm(applicant.get("name_fa"))
-    emails = {_norm(e) for e in (applicant.get("emails") or [])}
+    aliases = _applicant_aliases(applicant)
+    shared = _shared_tokens()
+    emails = {_norm(e) for e in (applicant.get("emails") or []) if _norm(e)}
     if applicant.get("email"):
         emails.add(_norm(applicant["email"]))
-    linkedins = {_norm(l) for l in (applicant.get("linkedins") or [])}
+    linkedins = {_norm(l) for l in (applicant.get("linkedins") or []) if _norm(l)}
     if applicant.get("linkedin"):
         linkedins.add(_norm(applicant["linkedin"]))
 
     for field in ("applicant", "applicant_id", "person", "account_id", "owner"):
         val = _norm(record.get(field))
-        if val and (val == aid or val == name or val == name_fa
-                    or aid in val or name in val or name_fa in val):
-            return True
-    mail = _norm(record.get("email") or record.get("to"))
+        if not val or len(val) < 2:
+            continue
+        for a in aliases:
+            if val == a:
+                return True
+            # مقدار رکورد داخل اسم کامل متقاضی: «ندا» در «ندا ارجمند» ✓
+            if len(val) >= 2 and val in a:
+                return True
+            # اسم متقاضی داخل مقدار رکورد: فقط اگر متمایز باشد —
+            # «ارجمند» در «توحید_ارجمند» برای ندا ممنوع است (مشترک خانوادگی)
+            if len(a) >= 2 and a in val and a not in shared:
+                return True
+    mail = _norm(record.get("email") or record.get("to")
+                 or record.get("recipient_email"))
     if mail and mail in emails:
         return True
-    li = _norm(record.get("linkedin"))
-    if li and any(li in x or x in li for x in linkedins if x):
-        return True
+    for f in ("linkedin", "url", "profile"):
+        li = _norm(record.get(f))
+        if li and any(li in x or x in li for x in linkedins if x):
+            return True
     return False
+
+
+def _tracker_applicant_map():
+    """
+    نگاشت email_id → applicant از روی EMAIL_TRACKER.
+
+    یادآورها (REMINDERS) و اعلان‌ها فیلد متقاضی ندارند و فقط email_id
+    دارند؛ بدون این نگاشت به هیچ‌کس نمی‌رسیدند و گم می‌شدند.
+    """
+    et = _read_json("EMAIL_TRACKER.json", {}) or {}
+    return {e.get("id"): e.get("applicant")
+            for e in (et.get("emails") or []) if e.get("id")}
 
 
 def _job_rank(job):
@@ -478,13 +575,31 @@ def applicant_dossier(applicant, limit=60, country=None):
     et = _read_json("EMAIL_TRACKER.json", {}) or {}
     my_sent = [e for e in (et.get("emails") or [])
                if _matches_applicant(e, applicant)]
-    my_notifs = [n for n in (et.get("notifications") or [])
-                 if _matches_applicant(n, applicant)]
+    tracker_map = _tracker_applicant_map()
+    my_notifs = []
+    for n in (et.get("notifications") or []):
+        if _matches_applicant(n, applicant):
+            my_notifs.append(n)
+        elif n.get("email_id") in tracker_map and _matches_applicant(
+                {"applicant": tracker_map[n["email_id"]]}, applicant):
+            my_notifs.append(n)
 
     # ── یادآورها ──
+    # بیشتر یادآورها فیلد متقاضی ندارند و فقط email_id دارند؛
+    # صاحبشان را از روی ایمیل متناظر در ترکر پیدا می‌کنیم.
     rm = _read_json("REMINDERS.json", {}) or {}
-    my_rem = [r for r in (rm.get("reminders") or [])
-              if _matches_applicant(r, applicant)]
+    my_rem = []
+    for r in (rm.get("reminders") or []):
+        if _matches_applicant(r, applicant):
+            my_rem.append(r)
+        elif r.get("email_id") in tracker_map and _matches_applicant(
+                {"applicant": tracker_map[r["email_id"]]}, applicant):
+            r = dict(r)
+            r["_via_email"] = tracker_map[r["email_id"]]
+            my_rem.append(r)
+
+    # ── لینکدین ──
+    my_linkedin = _load_linkedin(applicant)
 
     now = _now()
     overdue_rem = []
@@ -511,6 +626,7 @@ def applicant_dossier(applicant, limit=60, country=None):
         "reminders": my_rem,
         "overdue": overdue_rem,
         "open_reminders": open_rem,
+        "linkedin": my_linkedin,
         "stats": {
             "jobs_matched": len(scored),
             "jobs_shown": len(jobs_out),
@@ -519,6 +635,8 @@ def applicant_dossier(applicant, limit=60, country=None):
             "total_apps": len(my_apps),
             "emails_found": len(my_emails),
             "emails_sent": len(my_sent),
+            "reminders": len(my_rem),
+            "linkedin": len(my_linkedin),
             "overdue": len(overdue_rem),
         },
         "next_steps": next_steps,

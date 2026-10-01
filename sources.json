@@ -794,20 +794,6 @@
    "trust": 72
   },
   {
-   "name": "AMS Österreich (رسمی دولت)",
-   "track": "job",
-   "country": "AT",
-   "type": "government",
-   "enabled": true,
-   "needs_js": true,
-   "url": "https://www.ams.at",
-   "search_urls": [
-    "https://jobsuche.ams.at/",
-    "https://www.ams.at/arbeitsuche/jobsuche"
-   ],
-   "trust": 90
-  },
-  {
    "name": "StepStone AT",
    "track": "job",
    "country": "AT",
@@ -816,9 +802,14 @@
    "url": "https://www.stepstone.at",
    "search_urls": [
     "https://www.stepstone.at/jobs/it-manager",
-    "https://www.stepstone.at/jobs/softwareentwickler"
+    "https://www.stepstone.at/jobs/softwareentwickler",
+    "https://www.stepstone.at/jobs?su=it+manager",
+    "https://www.stepstone.at/jobs?su=softwareentwickler",
+    "https://www.stepstone.at/jobs?su=netzwerkadministrator",
+    "https://www.stepstone.at/jobs?su=hebamme"
    ],
-   "trust": 76
+   "trust": 76,
+   "needs_js": true
   },
   {
    "name": "Indeed Austria",
@@ -830,7 +821,9 @@
    "url": "https://at.indeed.com",
    "search_urls": [
     "https://at.indeed.com/jobs?q=it+manager",
-    "https://at.indeed.com/jobs?q=softwareentwickler"
+    "https://at.indeed.com/jobs?q=softwareentwickler",
+    "https://at.indeed.com/jobs?q=krankenpfleger",
+    "https://at.indeed.com/jobs?q=hebamme"
    ],
    "trust": 72
   },
@@ -1026,6 +1019,37 @@
     "https://www.studyinzl.gov.nz/how-to-apply"
    ],
    "trust": 92
+  },
+  {
+   "name": "AMS eJob-Room (رسمی دولت اتریش)",
+   "track": "job",
+   "country": "AT",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://jobs.ams.at/public/emps/jobs",
+   "search_urls": [
+    "https://jobs.ams.at/public/emps/jobs?sortField=_SCORE&sortOrder=desc"
+   ],
+   "trust": 95,
+   "note": "آدرس فرم رسمی از صفحه اصلی jobroom.ams.or.at کشف شد؛ پارامتر کلیدواژه نامشخص است"
+  },
+  {
+   "name": "karriere.at",
+   "track": "job",
+   "country": "AT",
+   "type": "portal",
+   "enabled": true,
+   "needs_js": false,
+   "url": "https://www.karriere.at/jobs",
+   "search_urls": [
+    "https://www.karriere.at/jobs?keywords=it+manager",
+    "https://www.karriere.at/jobs?keywords=softwareentwickler",
+    "https://www.karriere.at/jobs?keywords=netzwerkadministrator",
+    "https://www.karriere.at/jobs?keywords=krankenpfleger",
+    "https://www.karriere.at/jobs?keywords=hebamme"
+   ],
+   "trust": 85
   }
  ]
 }
