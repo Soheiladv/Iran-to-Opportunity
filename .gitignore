@@ -8,12 +8,14 @@ profiles/
 output/
 
 # ---- تنظیمات محلی و API Keys ----
+# کل الگوی .env* گرفته می‌شود تا فایل‌هایی مثل .env11111.txt یا
+# .env.production هم دزدیده نشوند — فقط الگوی .env تنها کافی نبود.
 .env
-.env.local
+.env.*
+!.env.example
 config.json
 secrets.json
 email_accounts.json
-!.env.example
 
 # ---- بانک منابع آگهی — به GitHub منتقل می‌شود (بدون اطلاعات شخصی) ----
 !sources.json

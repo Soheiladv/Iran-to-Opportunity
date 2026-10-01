@@ -27,6 +27,7 @@ from urllib.parse import parse_qs, urlparse
 BASE = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(BASE, "output")
 DASHBOARD_DIR = os.path.join(BASE, "dashboard")
+MEM_DIR = os.path.join(BASE, "memory")
 CONFIG_PATH = os.path.join(BASE, "config.json")
 ENV_PATH = os.path.join(BASE, ".env")
 GITIGNORE_PATH = os.path.join(BASE, ".gitignore")
@@ -39,63 +40,197 @@ except Exception:
     HAS_JOB_CRAWLER = False
 
 try:
+    import education_crawler as _ec
+    HAS_EDU_CRAWLER = True
+except Exception:
+    HAS_EDU_CRAWLER = False
+
+try:
+    import visa_tracker as _vt
+    HAS_VISA = True
+except Exception:
+    HAS_VISA = False
+
+try:
     from openpyxl import load_workbook, Workbook
     HAS_OPENPYXL = True
 except ImportError:
     HAS_OPENPYXL = False
 
-# پایپ‌لاین اجرا — همان ۵ مرحله‌ی run.py
-PIPELINE_STEPS = [
-    {"key": "email_analyze", "name": "تحلیل ایمیل شغلی", "script": "email_analyzer.py", "emoji": "📧"},
-    {"key": "email_excel", "name": "ساخت Excel ایمیل", "script": "email_dashboard.py", "emoji": "📊"},
-    {"key": "job_search", "name": "جستجوی خودکار کار", "script": "job_crawler.py", "emoji": "🔍"},
-    {"key": "followup", "name": "یادآوری پیگیری", "script": "followup_reminder.py", "emoji": "⏰"},
-    {"key": "dashboard", "name": "ساخت داشبورد اصلی", "script": "build_dashboard.py", "emoji": "📈"},
-]
+# ══════════════════════════════════════════════════════════════
+# دو مسیر جدا: کاریابی و تحصیل
+#
+# هر مسیر پایپ‌لاین خودش را دارد و منابع خودش را از sources.json
+# (track=job یا track=education) می‌خواند. انتخاب مسیر در صفحهٔ اصلی
+# با ?track= انجام می‌شود و در سراسر داشبورد (تب‌ها، پایپ‌لاین، گزارش‌ها)
+# حفظ می‌شود — یعنی همه‌جا یا کار می‌بینی یا تحصیل، قاطی نمی‌شود.
+# ══════════════════════════════════════════════════════════════
+TRACKS = {
+    "job": {
+        "label": "کاریابی", "emoji": "🔍", "crawler": "job_crawler.py",
+        "results": "CRAWLER_RESULTS.json", "kind": "آگهی",
+        "xlsx_prefix": "Job_Crawler", "accent": "var(--teal)",
+    },
+    "education": {
+        "label": "تحصیل", "emoji": "🎓", "crawler": "education_crawler.py",
+        "results": "EDUCATION_RESULTS.json", "kind": "برنامه",
+        "xlsx_prefix": "Education_Crawler", "accent": "var(--amber)",
+    },
+}
+DEFAULT_TRACK = "job"
+
+
+def track_of(track=None):
+    """نام مسیر را امن می‌کند — هر ورودی ناشناخته به مسیر پیش‌فرض می‌افتد."""
+    t = (track or DEFAULT_TRACK).strip().lower()
+    return t if t in TRACKS else DEFAULT_TRACK
+
+
+def track_meta(track=None):
+    return TRACKS[track_of(track)]
+
+
+def track_results_path(track=None):
+    return os.path.join(MEM_DIR, track_meta(track)["results"])
+
+
+def with_track(path, track):
+    """مسیر داخلی را با ?track= کامل می‌کند تا تب‌ها مسیر فعال را نگه دارند."""
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}track={track_of(track)}"
+
+
+# پایپ‌لاین اجرا — هر مسیر مراحل خودش را دارد
+PIPELINE = {
+    "job": [
+        {"key": "email_analyze", "name": "تحلیل ایمیل شغلی", "script": "email_analyzer.py", "emoji": "📧"},
+        {"key": "email_excel", "name": "ساخت Excel ایمیل", "script": "email_dashboard.py", "emoji": "📊"},
+        {"key": "job_search", "name": "جستجوی خودکار کار", "script": "job_crawler.py", "emoji": "🔍"},
+        {"key": "followup", "name": "یادآوری پیگیری", "script": "followup_reminder.py", "emoji": "⏰"},
+        {"key": "dashboard", "name": "ساخت داشبورد اصلی", "script": "build_dashboard.py", "emoji": "📈"},
+    ],
+    "education": [
+        {"key": "email_analyze", "name": "تحلیل ایمیل تحصیلی", "script": "email_analyzer.py", "emoji": "📧"},
+        {"key": "edu_search", "name": "جستجوی برنامه‌های تحصیلی", "script": "education_crawler.py", "emoji": "🎓"},
+        {"key": "email_excel", "name": "ساخت Excel ایمیل", "script": "email_dashboard.py", "emoji": "📊"},
+        {"key": "followup", "name": "یادآوری پیگیری", "script": "followup_reminder.py", "emoji": "⏰"},
+        {"key": "dashboard", "name": "ساخت داشبورد اصلی", "script": "build_dashboard.py", "emoji": "📈"},
+    ],
+}
+
+
+def pipeline_steps(track=None):
+    return PIPELINE[track_of(track)]
+
 
 # ── وضعیت اجرای پایپ‌لاین در حافظه (thread-safe به‌قدر کافی برای یک کاربر محلی) ──
 run_state = {
     "running": False, "log": [], "started_at": None, "finished_at": None,
-    "step_index": 0, "step_total": len(PIPELINE_STEPS), "current_step": "",
-    # 🔴 پنل زنده جستجو — اسکریپت‌ها الان کدام منبع/آدرس را می‌کَویند
-    "live": {"active": False, "source": "", "source_idx": 0, "source_total": 0,
-             "url": "", "keyword": "", "sources_done": [], "jobs_found": 0},
+    "step_index": 0, "step_total": 0, "current_step": "", "track": DEFAULT_TRACK,
+    # 🔴 پنل زنده — اسکریپت الان کدام منبع و کدام آدرس را باز می‌کند
+    "live": {
+        "active": False, "track": DEFAULT_TRACK,
+        "source": "", "source_idx": 0, "source_total": 0, "country": "",
+        "url": "", "keyword": "", "url_idx": 0, "url_total": 0,
+        # شمارش روی تک‌تک آدرس‌ها — نوار پیوسته حرکت می‌کند
+        "url_done": 0, "url_total_all": 0, "pct": 0,
+        "jobs_found": 0, "sources_done": [], "urls": [],
+    },
 }
 run_lock = threading.Lock()
 
 import re as _re
+import urllib.parse
 
+# ── پروتکل پارس لاگ ─────────────────────────────────────────────
+# این regex ها دقیقاً با قالب print های job_crawler.py هم‌خوان‌اند.
+# اگر آن قالب‌ها را عوض کردی، این‌ها را هم عوض کن.
 _LIVE_PATTERNS = {
-    # 📡 [3/18] Seek AU (AU) - در حال بررسی… (هم - و هم —)
-    "source": _re.compile(r"📡\s*\[(\d+)/(\d+)\]\s*(.+?)\s*\((\w+)\)\s*[—-]+\s*در حال بررسی"),
-    # 🔎 [1/2] کلیدواژه: «midwife» ← https://...
-    "url": _re.compile(r"🔎\s*\[\d+/\d+\]\s*کلیدواژه:\s*«(.+?)»\s*←\s*(\S+)"),
-    # ⚠️ مجموعاً 0 آگهی یافت شد از Seek NZ  |  ✅ ... 12 آگهی ...
-    "done": _re.compile(r"مجموعاً (\d+) آگهی یافت شد از (.+)"),
+    # [███░░░] آدرس 12/191 (6.3%) · سایت 3/25 · 🧲 45 آگهی   ← دقیق‌ترین منبع
+    "bar": _re.compile(
+        r"\[[█▏░ ]*\]\s*آدرس\s*(\d+)\s*/\s*(\d+)\s*\(([\d.]+)%\)"
+        r".*?سایت\s*(\d+)\s*/\s*(\d+).*?🧲\s*(\d+)\s*(\S+)"),
+    # 📡 [3/25] Seek AU (AU) — در حال بررسی…
+    "source": _re.compile(r"📡\s*\[(\d+)/(\d+)\]\s*(.+?)\s*\(([A-Z]{2}|[^\s()]+)\)\s*—+\s*در حال بررسی"),
+    # 🔎 [2/5] کلیدواژه: «it manager» ← https://…
+    "fetch": _re.compile(r"🔎\s*\[(\d+)/(\d+)\]\s*کلیدواژه:\s*«(.+?)»\s*←\s*(\S+)"),
+    # ✅ [2/5] نام سایت · «it manager» · 12 آگهی · 4300ms
+    "url_done": _re.compile(
+        r"✅\s*\[(\d+)/(\d+)\]\s*(.+?)\s*·\s*«(.+?)»\s*·\s*(\d+)\s*(\S+)\s*·\s*(\d+)\s*ms"),
+    # ⚠️ [3/5] نام سایت · «kw» · پاسخی نیامد (…)
+    "url_fail": _re.compile(r"⚠️\s*\[(\d+)/(\d+)\]\s*(.+?)\s*·\s*«(.+?)»\s*·\s*پاسخی نیامد"),
+    # 🏁 مجموعاً 12 آگهی یافت شد از نام سایت · 40.3s
+    "site_done": _re.compile(r"🏁\s*مجموعاً\s*(\d+)\s*(\S+)\s*یافت شد از\s*(.+?)\s*·\s*([\d.]+)\s*s"),
 }
+
+MAX_LIVE_URLS = 400  # جدول زنده بی‌نهایت رشد نکند
+
+
+def _live_reset():
+    """وضعیت زنده را صفر می‌کند — موقع شروع هر اجرا."""
+    run_state["live"] = {
+        "active": False, "track": run_state.get("track", DEFAULT_TRACK),
+        "source": "", "source_idx": 0, "source_total": 0, "country": "",
+        "url": "", "keyword": "", "url_idx": 0, "url_total": 0,
+        "url_done": 0, "url_total_all": 0, "pct": 0,
+        "jobs_found": 0, "sources_done": [], "urls": [],
+    }
 
 
 def _update_live_state(line):
     """خطوط لاگِ در حال استریم را پارس می‌کند و پنل جستجوی زنده را به‌روز می‌کند."""
     live = run_state["live"]
+
+    # نوار progress — دقیق‌تر از هر محاسبه‌ای، چون خود کراولر شمرده
+    m = _LIVE_PATTERNS["bar"].search(line)
+    if m:
+        live["url_done"] = int(m.group(1))
+        live["url_total_all"] = int(m.group(2))
+        live["pct"] = float(m.group(3))
+        live["site_done"] = int(m.group(4))
+        live["source_total"] = int(m.group(5))
+        live["jobs_found"] = int(m.group(6))
+        live["active"] = True
+        return
+
     m = _LIVE_PATTERNS["source"].search(line)
     if m:
         live["active"] = True
         live["source_idx"], live["source_total"] = int(m.group(1)), int(m.group(2))
         live["source"] = m.group(3).strip()
+        live["country"] = m.group(4).strip()
         live["url"], live["keyword"] = "", ""
+        live["url_idx"] = live["url_total"] = 0
         return
-    m = _LIVE_PATTERNS["url"].search(line)
+
+    m = _LIVE_PATTERNS["fetch"].search(line)
     if m:
-        live["keyword"], live["url"] = m.group(1), m.group(2)
+        live["url_idx"], live["url_total"] = int(m.group(1)), int(m.group(2))
+        live["keyword"], live["url"] = m.group(3), m.group(4)
         return
-    m = _LIVE_PATTERNS["done"].search(line)
+
+    # یک آدرس تمام شد → ردیف جدید در جدول زنده
+    for key, status in (("url_done", "ok"), ("url_fail", "blocked")):
+        m = _LIVE_PATTERNS[key].search(line)
+        if not m:
+            continue
+        name, kw = m.group(3).strip(), m.group(4)
+        jobs = int(m.group(5)) if status == "ok" else 0
+        ms = int(m.group(7)) if status == "ok" else 0
+        live["urls"].append({
+            "name": name, "keyword": kw, "url": live["url"] or kw,
+            "jobs": jobs, "ms": ms, "status": status,
+            "idx": len(live["urls"]) + 1,
+        })
+        if len(live["urls"]) > MAX_LIVE_URLS:
+            del live["urls"][: len(live["urls"]) - MAX_LIVE_URLS]
+        return
+
+    m = _LIVE_PATTERNS["site_done"].search(line)
     if m:
-        found, name = int(m.group(1)), m.group(2).strip()
-        live["jobs_found"] += found
-        live["sources_done"].append({"name": name, "jobs": found})
-        # url/keyword را پاک نکن — خط «📡 منبع جدید» خودش آنها را ریست می‌کند
-        # و این‌طوری آخرین URL در پنل زنده تا منبع بعدی دیده می‌ماند.
+        found, name, secs = int(m.group(1)), m.group(3).strip(), float(m.group(4))
+        live["sources_done"].append({"name": name, "jobs": found, "secs": secs})
+        return
 
 
 def app_bank_section():
@@ -310,35 +445,56 @@ def _append_log(line):
         del run_state["log"][: len(run_state["log"]) - MAX_LOG_LINES]
 
 
-def run_pipeline_background():
+def run_pipeline_background(track=None, countries=None):
+    """پایپ‌لاین مسیر انتخاب‌شده را در پس‌زمینه اجرا می‌کند.
+
+    track مسیر است (job یا education) و steps از همان مسیر خوانده می‌شود،
+    پس «اجرای تحصیل» هیچ‌وقت اسکریپت کاریابی را صدا نمی‌زند.
+    countries لیست اختیاری کد کشورهایی است که باید --country بگیرند.
+    """
+    t = track_of(track)
+    steps = pipeline_steps(t)
+    live_steps = ("job_search", "edu_search")  # مرحله‌هایی که پنل زنده دارند
+
     with run_lock:
         if run_state["running"]:
             return
         run_state["running"] = True
+        run_state["track"] = t
         run_state["log"] = []
         run_state["started_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         run_state["finished_at"] = None
         run_state["step_index"] = 0
-        run_state["step_total"] = len(PIPELINE_STEPS)
+        run_state["step_total"] = len(steps)
         run_state["current_step"] = ""
-        run_state["live"] = {"active": False, "source": "", "source_idx": 0, "source_total": 0,
-                             "url": "", "keyword": "", "sources_done": [], "jobs_found": 0}
+    _live_reset()
+    run_state["live"]["track"] = t
 
-    for i, step in enumerate(PIPELINE_STEPS, 1):
+    for i, step in enumerate(steps, 1):
         run_state["step_index"] = i
         run_state["current_step"] = f"{step['emoji']} {step['name']}"
         script_path = os.path.join(BASE, step["script"])
         if not os.path.exists(script_path):
             _append_log(f"⏭️  {step['emoji']} {step['name']} — فایل {step['script']} پیدا نشد، رد شد")
             continue
-        _append_log(f"▶ [{i}/{len(PIPELINE_STEPS)}] {step['emoji']} {step['name']} در حال اجرا…")
-        run_state["live"]["active"] = step["key"] in ("job_search",)
+        _append_log(f"▶ [{i}/{len(steps)}] {step['emoji']} {step['name']} در حال اجرا…")
+        run_state["live"]["active"] = step["key"] in live_steps
+
+        # مسیر انتخابی به کراولر می‌رود و کشورها هم فقط برای همان مسیر
+        cmd = [sys.executable, "-u", script_path]
+        if step["key"] in live_steps:
+            cmd += ["--track", t]
+            if countries:
+                for c in countries:
+                    cmd += ["--country", c]
+
         try:
             # -u = خروجی بدون بافر، تا خط‌به‌خط همین‌جا زنده دیده شود
             proc = subprocess.Popen(
-                [sys.executable, "-u", script_path],
+                cmd,
                 cwd=BASE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1,
+                encoding="utf-8", errors="replace",
             )
             start_ts = time.monotonic()
             for line in proc.stdout:
@@ -429,7 +585,7 @@ table.files td.date{color:var(--muted); font-size:.82rem; white-space:nowrap}
 .badge{display:inline-block; font-size:.78rem; padding:2px 8px; border-radius:20px; margin-right:6px}
 .badge.ok{background:#e2efe6; color:var(--ok)}
 .badge.err{background:#f4e2dd; color:var(--err)}
-nav.tabs{display:flex; gap:6px}
+nav.tabs{display:flex; gap:6px; flex-wrap:wrap}
 nav.tabs a{
   color:#c9d8d4; text-decoration:none; padding:6px 14px; border-radius:20px; font-size:.9rem;
 }
@@ -448,20 +604,129 @@ form.inline .full{grid-column:1 / -1}
 .applicant-block{border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; margin-bottom:18px}
 .applicant-block h3{margin:0 0 4px; font-size:1rem}
 .hint{color:var(--muted); font-size:.82rem; margin-top:4px}
+
+/* ── انتخابگر مسیر: کاریابی / تحصیل ── */
+.track-switch{
+  display:inline-flex; background:#fff; border:1px solid var(--line);
+  border-radius:26px; padding:4px; gap:4px; margin-bottom:6px;
+}
+.track-switch a{
+  text-decoration:none; color:var(--muted); padding:8px 20px; border-radius:22px;
+  font-size:.92rem; font-weight:600; display:flex; align-items:center; gap:7px;
+}
+.track-switch a.active{background:var(--teal); color:#fff}
+.track-switch a:hover:not(.active){background:var(--amber-soft); color:var(--ink)}
+
+/* ── نوار پیشرفت ── */
+.pbar{height:10px; background:#e6e2d6; border-radius:6px; overflow:hidden; margin:12px 0}
+.pbar > span{display:block; height:100%; background:var(--teal); border-radius:6px; transition:width .35s ease}
+.pbar.edu > span{background:var(--amber)}
+.live-top{display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px}
+.live-nums{font-variant-numeric:tabular-nums; color:var(--muted); font-size:.88rem}
+.live-now{
+  background:var(--teal-deep); color:#e6efec; border-radius:var(--radius);
+  padding:12px 16px; font-family:monospace; font-size:.83rem; direction:ltr; text-align:left;
+  word-break:break-all;
+}
+.live-now .dim{color:#8fa8a3}
+.live-now .kw{color:var(--amber-soft)}
+.live-now .flag{color:#f0b8a8}
+
+/* ── جدول زندهٔ آدرس‌ها ── */
+table.live{width:100%; border-collapse:collapse; font-size:.84rem}
+table.live th{
+  padding:8px 6px; border-bottom:2px solid var(--line); text-align:right;
+  color:var(--teal-deep); font-weight:700; white-space:nowrap;
+}
+table.live td{padding:6px; border-bottom:1px solid #eeebe2; vertical-align:top}
+table.live td.idx{color:var(--muted); width:34px; font-variant-numeric:tabular-nums}
+table.live td.num{font-variant-numeric:tabular-nums; text-align:left; white-space:nowrap; width:60px}
+table.live td.ms{color:var(--muted); font-variant-numeric:tabular-nums; text-align:left; white-space:nowrap; width:70px}
+table.live td.kw{white-space:nowrap; color:var(--ink); font-weight:600; width:120px}
+table.live td.src{white-space:nowrap; color:var(--muted); width:150px}
+table.live td.url{direction:ltr; text-align:left; word-break:break-all; color:var(--teal)}
+table.live td.url a{color:var(--teal)}
+.scroll-y{max-height:420px; overflow-y:auto}
+.scroll-y table.live thead th{position:sticky; top:0; background:var(--paper); z-index:1}
+
+/* ── چک‌لیست ویزا ── */
+ul.check{list-style:none; margin:0; padding:0}
+ul.check li{
+  display:flex; align-items:flex-start; gap:10px; padding:9px 0;
+  border-bottom:1px dashed var(--line);
+}
+ul.check li:last-child{border-bottom:none}
+ul.check .box{
+  width:21px; height:21px; border:2px solid var(--line); border-radius:5px; flex:0 0 21px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-size:.8rem; color:transparent; margin-top:3px; text-decoration:none; background:#fff;
+}
+ul.check .box:hover{border-color:var(--teal)}
+ul.check li.done .box{background:var(--ok); border-color:var(--ok); color:#fff}
+ul.check li.done .t{text-decoration:line-through; color:var(--muted)}
+ul.check .t{font-weight:600}
+ul.check .h{color:var(--muted); font-size:.8rem}
+ul.check .when{color:var(--ok); font-size:.78rem; white-space:nowrap}
+ul.check form{display:inline}
+.act-row{display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line)}
+.act-row:last-child{border-bottom:none}
+.act-row .cat{font-size:1.15rem; line-height:1.4}
+.act-row .ttl{font-weight:600}
+.act-row .dt{color:var(--muted); font-size:.79rem; margin-top:2px}
+.act-row .dt .late{color:var(--err); font-weight:700}
+.act-row.done .ttl{text-decoration:line-through; color:var(--muted)}
+.kv{display:flex; gap:6px; flex-wrap:wrap; margin-top:3px}
+.stat-row{display:flex; gap:20px; flex-wrap:wrap; margin:10px 0 4px}
+.stat-row .st{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:10px 16px; min-width:96px}
+.stat-row .st b{display:block; font-size:1.35rem; color:var(--teal-deep); font-variant-numeric:tabular-nums}
+.stat-row .st span{font-size:.78rem; color:var(--muted)}
 """
 
 
-def nav_html(active):
+def nav_html(active, track=None):
+    """نوار بالا: انتخابگر مسیر + تب‌ها.
+
+    مسیر در ?track= جا می‌ماند تا هر تب با همان مسیر باز شود — یعنی اگر
+    در حال دیدن «تحصیل» هستی و به فایل‌ها یا تنظیمات می‌روی، همان‌جا می‌مانی.
+    """
     def cls(name):
         return "active" if name == active else ""
+    t = track_of(track)
     return f"""<nav class="tabs">
-  <a class="{cls('dashboard')}" href="/">گزارش زنده</a>
-  <a class="{cls('yield')}" href="/yield">📈 بازده منابع</a>
-  <a class="{cls('files')}" href="/files">📁 فایل‌ها</a>
-  <a class="{cls('reports')}" href="/reports">📑 گزارش‌ها</a>
-  <a class="{cls('settings')}" href="/settings">⚙️ تنظیمات</a>
-  <a class="{cls('about')}" href="/about">ℹ️ توضیحات</a>
+  <a class="{cls('dashboard')}" href="{with_track('/', t)}">🔴 گزارش زنده</a>
+  <a class="{cls('education')}" href="{with_track('/education', t)}">🎓 تحصیل</a>
+  <a class="{cls('visa')}" href="{with_track('/visa', t)}">🛂 نورد ویزا</a>
+  <a class="{cls('yield')}" href="{with_track('/yield', t)}">📈 بازده منابع</a>
+  <a class="{cls('files')}" href="{with_track('/files', t)}">📁 فایل‌ها</a>
+  <a class="{cls('reports')}" href="{with_track('/reports', t)}">📑 گزارش‌ها</a>
+  <a class="{cls('settings')}" href="{with_track('/settings', t)}">⚙️ تنظیمات</a>
+  <a class="{cls('about')}" href="{with_track('/about', t)}">ℹ️ توضیحات</a>
 </nav>"""
+
+
+# آیکون درون‌خطی — بدون فایل جدا، و مرورگر دیگر 404 برای /favicon.ico نمی‌زند
+FAVICON = (
+    '<link rel="icon" href="data:image/svg+xml,'
+    '%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E'
+    '%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%231c3a37%27/%3E'
+    '%3Cpath d=%27M16 5l9 5-9 5-9-5 9-5zm-9 10l9 5 9-5v3l-9 5-9-5v-3z%27 fill=%27%23b3722c%27/%3E'
+    '%3C/svg%3E">'
+)
+
+
+def track_switch_html(active_track, base_path="/"):
+    """کلید انتخاب مسیر: کاریابی ⇄ تحصیل."""
+    def link(t):
+        cls = "active" if t == active_track else ""
+        m = TRACKS[t]
+        return (f'<a class="{cls}" href="{with_track(base_path, t)}">'
+                f'{m["emoji"]} {m["label"]}</a>')
+
+    return f"""<div class="track-switch">{link('job')}{link('education')}</div>
+<div class="hint" style="margin-bottom:16px">
+  مسیر انتخابی همه‌جا اعمال می‌شود — منابع، پایپ‌لاین، گزارش‌ها و خروجی‌ها.
+  این دو مسیر از هم جدا هستند و قاطی نمی‌شوند.
+</div>"""
 
 
 def render_yield():
@@ -559,7 +824,7 @@ def render_yield():
 <body>
 <header class="top">
   <h1>📈 بازده منابع در طول زمان</h1>
-  {nav_html('yield')}
+  {nav_html('yield', 'job')}
 </header>
 <main>
   {summary}
@@ -599,7 +864,7 @@ def render_files():
 <body>
 <header class="top">
   <h1>📁 فایل‌های تولیدشده</h1>
-  {nav_html('files')}
+  {nav_html('files', 'job')}
 </header>
 <main>
   <section>
@@ -617,155 +882,665 @@ def render_files():
 </body></html>"""
 
 
-def render_index():
-    applicants = load_applicants()
-    if applicants:
-        cards = "".join(f"""
-          <div class="card applicant">
-            <div class="emoji">{html.escape(a.get('emoji','👤'))}</div>
-            <div class="name">{html.escape(a.get('name_fa') or a.get('name','?'))}</div>
-            <div class="meta">{html.escape(a.get('profession',''))}</div>
-          </div>""" for a in applicants)
-    else:
-        cards = '<p class="empty">هنوز کسی در config.json تعریف نشده — از config.json.example شروع کن.</p>'
+def render_index(track=None, message=None):
+    """صفحهٔ اصلی — تماماً گزارش لحظه‌ای.
+
+    این صفحه هیچ فایل، داشبورد یا لیست بلندی ندارد: یک چیز نشان می‌دهد،
+    «الان چه اتفاقی در حال رخ دادن است». فایل‌ها در تب جدا (/files) هستند.
+    """
+    t = track_of(track)
+    mt = track_meta(t)
+    steps = pipeline_steps(t)
 
     steps_html = "".join(
-        f'<li>{s["emoji"]} {html.escape(s["name"])} <span style="color:var(--muted);font-size:.85rem">({s["script"]})</span></li>'
-        for s in PIPELINE_STEPS
+        f'<li>{s["emoji"]} {html.escape(s["name"])} '
+        f'<span style="color:var(--muted);font-size:.85rem">({s["script"]})</span></li>'
+        for s in steps
     )
+
+    msg_html = f'<div class="warn">{html.escape(message)}</div>' if message else ""
 
     return f"""<!doctype html>
 <html lang="fa"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Migration Hunter — داشبورد</title>
+<title>Migration Hunter — {mt['emoji']} {mt['label']}</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
 <style>{PAGE_STYLE}</style>
 </head>
 <body>
 <header class="top">
   <h1>🧭 Migration Hunter</h1>
-  {nav_html('dashboard')}
+  {nav_html('dashboard', t)}
 </header>
 <main>
+  {msg_html}
   <section>
-    <h2>🔴 گزارش لحظه‌ای جستجو</h2>
-    <div id="livePanel" style="display:none; margin:6px 0 18px">
-      <div class="card" style="border-color:var(--amber); background:#fdf8ef">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:6px">
+    {track_switch_html(t, '/')}
+    <div class="live-top">
+      <h2 style="border:none;margin:0">🔴 گزارش لحظه‌ای — {mt['emoji']} {mt['label']}</h2>
+      <span class="live-nums" id="liveCounter"></span>
+    </div>
+
+    <div id="livePanel" style="display:none; margin:10px 0 18px">
+      <div class="card" style="border-color:{mt['accent']}; background:#fdf8ef">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
           <span style="width:10px; height:10px; border-radius:50%; background:var(--err); display:inline-block; animation:pulse 1.2s infinite"></span>
-          <strong style="color:var(--amber)">در حال جستجوی زنده…</strong>
-          <span id="liveCounter" style="color:var(--muted); font-size:.85rem"></span>
+          <strong style="color:var(--amber)">در حال اجرا…</strong>
+          <span style="color:var(--muted); font-size:.85rem" id="liveStep"></span>
         </div>
-        <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:.95rem">
-          <div><span style="color:var(--muted)">📡 منبع فعلی:</span> <strong id="liveSource">—</strong></div>
-          <div><span style="color:var(--muted)">🔎 کلیدواژه:</span> <span id="liveKeyword">—</span></div>
+
+        <div class="pbar {'edu' if t == 'education' else ''}">
+          <span id="progressBar" style="width:0%"></span>
         </div>
-        <div id="liveUrl" style="direction:ltr; text-align:left; font-family:monospace; font-size:.8rem; color:var(--teal); margin-top:6px; word-break:break-all">—</div>
-        <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted); margin-bottom:4px">
-          <span id="progressLabel">—</span>
+        <div style="display:flex; justify-content:space-between; font-size:.85rem; color:var(--muted)">
+          <span id="progressLabel">آماده</span>
           <span id="progressPct">0%</span>
         </div>
-        <div style="background:var(--line); border-radius:20px; height:12px; overflow:hidden">
-          <div id="progressBar" style="background:var(--amber); height:100%; width:0%; transition:width .3s"></div>
-        </div>
-        <div style="margin-top:10px; font-size:.85rem">
-          <span style="color:var(--muted)">✅ منابع تمام‌شده:</span>
-          <span id="liveDone">هنوز هیچ منبعی تمام نشده</span>
-        </div>
-        <div style="margin-top:4px; font-size:1rem; color:var(--ok)">
-          <span style="color:var(--muted)">🧲 مجموع آگهی‌های یافت‌شده تا الان:</span> <strong id="liveJobs">0</strong>
+
+        <div class="live-now" id="liveNow" style="margin-top:12px">
+          <span class="dim">در انتظار شروع…</span>
         </div>
       </div>
     </div>
-    <div id="log">آماده به اجرا. برای شروع دکمه‌ی «اجرای پایپ‌لاین» را بزن.</div>
+
+    <div id="log">آماده به اجرا. دکمهٔ پایین را بزن تا «{mt['label']}» شروع شود.</div>
+  </section>
+
+  <section id="liveTableSec" style="display:none">
+    <h2>آدرس‌های بررسی‌شده <span class="hint" id="liveTableHint"></span></h2>
+    <div class="scroll-y">
+      <table class="live"><thead><tr>
+        <th>#</th><th>منبع</th><th>کلیدواژه</th><th>آدرس</th>
+        <th>{mt['kind']}</th><th>زمان</th><th>وضعیت</th>
+      </tr></thead>
+      <tbody id="liveRows"></tbody></table>
+    </div>
   </section>
 
   <section>
-    <h2>اجرای پایپ‌لاین</h2>
+    <h2>اجرای مسیر {mt['label']}</h2>
     <ol class="steps">{steps_html}</ol>
+    <div class="stat-row">
+      <div class="st"><b id="stJobs">0</b><span>{mt['kind']} یافت‌شده</span></div>
+      <div class="st"><b id="stUrls">0</b><span>آدرس بررسی‌شده</span></div>
+      <div class="st"><b id="stSrc">0</b><span>منبع تمام‌شده</span></div>
+      <div class="st"><b id="stMs">0</b><span>میانگین زمان پاسخ</span></div>
+    </div>
     <p style="margin-top:16px">
-      <button class="btn" id="runBtn" onclick="startRun()">▶ اجرای پایپ‌لاین</button>
+      <button class="btn" id="runBtn" onclick="startRun()">▶ اجرای {mt['label']}</button>
+      <span class="hint" style="margin-right:10px">مسیر فعال: {mt['emoji']} {mt['label']}</span>
     </p>
   </section>
 
-  {app_bank_section()}
-
-  <p style="margin-top:20px"><a class="btn" href="/files">📁 دیدن همهٔ فایل‌ها و داشبوردهای اکسل</a></p>
-
   <footer style="text-align:center; padding:30px 0 10px; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); margin-top:30px">
-    MigrationHunter v1.0 · آخرین به‌روزرسانی: {datetime.now().strftime("%Y-%m-%d %H:%M")}
+    MigrationHunter · {mt['emoji']} {mt['label']} · آخرین به‌روزرسانی: {datetime.now().strftime("%Y-%m-%d %H:%M")}
   </footer>
 </main>
 
 <script>
+const TRACK = {json.dumps(t)};
 let polling = null;
+let seenUrls = 0;
+
 function startRun(){{
-  fetch('/run', {{method:'POST'}}).then(()=>{{
-    document.getElementById('runBtn').disabled = true;
-    document.getElementById('livePanel').style.display = 'block';
-    document.getElementById('log').textContent = 'شروع شد…';
-    polling = setInterval(pollStatus, 900);
-    pollStatus();
-  }});
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('log').textContent = 'شروع شد…';
+  document.getElementById('livePanel').style.display = 'block';
+  seenUrls = 0;
+  fetch('/run?track=' + TRACK, {{method:'POST'}})
+    .then(r => r.json()).then(() => {{
+      polling = setInterval(pollStatus, 900);
+      pollStatus();
+    }});
 }}
+
+function fmtMs(ms){{ return ms >= 1000 ? (ms/1000).toFixed(1) + 's' : ms + 'ms'; }}
+
 function pollStatus(){{
-  fetch('/run-status').then(r=>r.json()).then(s=>{{
+  fetch('/run-status').then(r => r.json()).then(s => {{
     const logBox = document.getElementById('log');
     logBox.textContent = s.log.join('\\n') || '…';
-    logBox.scrollTop = logBox.scrollHeight;  // همیشه آخرین خط لایو دیده شود
+    logBox.scrollTop = logBox.scrollHeight;
 
-    // 🎯 progress واقعی — فقط وقتی منابعی تمام شده‌اند جلو می‌رود
     const lv = s.live || {{}};
-    let pct = 0;
-    if (s.running && lv.active && lv.source_total) {{
-      pct = Math.min(100, Math.round(((lv.source_idx || 0) / lv.source_total) * 100));
+
+    // نوار: اول از شمارش واقعی کراولر، وگرنه از مرحلهٔ پایپ‌لاین
+    let pct, label;
+    if (lv.active && lv.url_total_all) {{
+      pct = Math.min(100, lv.pct || 0);
+      label = `آدرس ${{lv.url_done || 0}} از ${{lv.url_total_all}} · منبع ${{lv.source_idx || 0}} از ${{lv.source_total || 0}}`;
     }} else if (!s.running) {{
-      pct = 100;
+      pct = 100; label = 'تمام شد';
     }} else {{
-      // خارج از فاز جستجو — بر اساس مرحلهٔ پایپ‌لاین (ولی با سقف ۱۰۰)
       pct = Math.round(((s.step_index || 0) / (s.step_total || 5)) * 100);
+      label = `مرحله ${{s.step_index || 0}} از ${{s.step_total || 0}} — ${{s.current_step || '…'}}`;
     }}
     document.getElementById('progressBar').style.width = pct + '%';
     document.getElementById('progressPct').textContent = pct + '%';
-    document.getElementById('progressLabel').textContent =
-      s.running
-        ? (lv.active && lv.source
-            ? `منبع ${{lv.source_idx || '?'}}/${{lv.source_total || '?'}} — ${{lv.source}}`
-            : `مرحله ${{s.step_index || '?'}}/${{s.step_total || '?'}} — ${{s.current_step || '...'}}`)
-        : 'تمام شد';
+    document.getElementById('progressLabel').textContent = label;
+    document.getElementById('liveStep').textContent = s.current_step || '';
+    document.getElementById('liveCounter').textContent =
+      lv.source_total ? `منبع ${{lv.source_idx || 0}} از ${{lv.source_total}}` : '';
 
-    // 🔴 پنل زندهٔ جستجو
-    const lp = document.getElementById('livePanel');
-    if (s.running) {{
-      lp.style.display = 'block';
-      document.getElementById('liveSource').textContent = lv.source || s.current_step || '…';
-      document.getElementById('liveKeyword').textContent = lv.keyword || '—';
-      document.getElementById('liveUrl').textContent = lv.url || '—';
-      document.getElementById('liveJobs').textContent = lv.jobs_found || 0;
-      document.getElementById('liveCounter').textContent =
-        lv.source_total ? `منبع ${{lv.source_idx || 0}} از ${{lv.source_total}}` : '';
-      const done = lv.sources_done || [];
-      document.getElementById('liveDone').textContent = done.length
-        ? done.map(d => `${{d.name}} ({{d.jobs}})`).join(' · ')
-        : 'هنوز هیچ منبعی تمام نشده';
-    }} else {{
-      lp.style.display = 'none';
+    // کادر «الان کجاییم»
+    const now = document.getElementById('liveNow');
+    if (lv.source) {{
+      let h = `<div><span class="dim">منبع:</span> <strong>${{lv.source}}</strong>`;
+      if (lv.country) h += ` <span class="dim">(${{lv.country}})</span>`;
+      h += `</div>`;
+      if (lv.keyword) h += `<div><span class="dim">کلیدواژه:</span> <span class="kw">«${{lv.keyword}}»</span>`;
+      if (lv.url) h += `<div><span class="dim">آدرس ${{lv.url_idx || '?'}}/${{lv.url_total || '?'}}:</span> ${{lv.url}}</div>`;
+      h += `<div class="dim">مجموع تا الان: ${{lv.jobs_found || 0}} یافته‌شده</div>`;
+      now.innerHTML = h;
     }}
 
-    if(!s.running){{
+    // جدول ریز هر آدرس — فقط ردیف‌های تازه اضافه می‌شوند
+    const urls = lv.urls || [];
+    if (urls.length) document.getElementById('liveTableSec').style.display = 'block';
+    const tbody = document.getElementById('liveRows');
+    for (let i = seenUrls; i < urls.length; i++) {{
+      const u = urls[i];
+      const okc = u.status === 'ok';
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        `<td class="idx">${{u.idx}}</td>` +
+        `<td class="src">${{u.name || ''}}</td>` +
+        `<td class="kw">${{u.keyword || ''}}</td>` +
+        `<td class="url"><a href="${{u.url}}" target="_blank" rel="noopener">${{u.url}}</a></td>` +
+        `<td class="num">${{okc ? u.jobs : '—'}}</td>` +
+        `<td class="ms">${{u.ms ? fmtMs(u.ms) : '—'}}</td>` +
+        `<td>${{okc
+            ? '<span class="badge ok">پاسخ داد</span>'
+            : '<span class="badge err">جواب نداد</span>'}}</td>`;
+      tbody.appendChild(tr);
+    }}
+    if (urls.length > seenUrls) {{
+      seenUrls = urls.length;
+      tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+      document.getElementById('liveTableHint').textContent =
+        `${{seenUrls}} آدرس · ${{(lv.url_done || 0)}}/${{(lv.url_total_all || 0)}}`;
+    }}
+
+    // آمار پایین صفحه
+    const doneTimes = urls.filter(u => u.ms).map(u => u.ms);
+    const avg = doneTimes.length
+      ? Math.round(doneTimes.reduce((a,b) => a+b, 0) / doneTimes.length) : 0;
+    document.getElementById('stJobs').textContent = lv.jobs_found || 0;
+    document.getElementById('stUrls').textContent = lv.url_done || 0;
+    document.getElementById('stSrc').textContent = (lv.sources_done || []).length;
+    document.getElementById('stMs').textContent = avg ? fmtMs(avg) : '0';
+
+    if (!s.running) {{
       clearInterval(polling);
       document.getElementById('runBtn').disabled = false;
       document.getElementById('progressBar').style.width = '100%';
       document.getElementById('progressPct').textContent = '100%';
-      logBox.textContent += '\\n\\n— پایان اجرا — فایل‌های جدید را در تب «📁 فایل‌ها» ببین —';
-      logBox.scrollTop = logBox.scrollHeight;
     }}
   }});
 }}
+pollStatus();
 </script>
 </body></html>"""
 
+def _edu_load_results(track=None):
+    """آخرین نتیجهٔ کراولر تحصیل را می‌خواند."""
+    p = track_results_path(track or "education")
+    if not os.path.exists(p):
+        return {"programs": [], "stats": {}}
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"programs": [], "stats": {}}
+
+
+def render_education(message=None):
+    """تب تحصیل — سه چیز: برنامه‌های پیدا‌شده، بانک اپلیکیشن، و اجرای زنده.
+
+    این صفحه هرچه لازم باشد را به مسیر education وصل می‌کند: برنامه‌های
+    کشف‌شده از منابع تحصیلی، و اپلیکیشن‌هایی که خودت ثبت کرده‌ای و تا
+    پذیرش پیگیری می‌کنی.
+    """
+    t = "education"
+    mt = track_meta(t)
+    applicants = load_applicants()
+    names = [a.get("name") or a.get("name_fa") or "?" for a in applicants] or [""]
+
+    msg_html = f'<div class="warn">{html.escape(message)}</div>' if message else ""
+
+    # ── بانک اپلیکیشن‌ها ──
+    if HAS_EDU_CRAWLER:
+        try:
+            apps = _ec.load_applications()
+            edu_stats = _ec.app_stats(apps)
+            # deadline_warnings دو لیست برمی‌گرداند: (نزدیک، گذشته)
+            _soon, _passed = _ec.deadline_warnings(apps)
+            warnings = list(_passed) + list(_soon)
+        except Exception:
+            apps, edu_stats, warnings = [], {}, []
+    else:
+        apps, edu_stats, warnings = [], {}, []
+
+    stats_html = f"""
+    <div class="stat-row">
+      <div class="st"><b>{len(apps)}</b><span>اپلیکیشن ثبت‌شده</span></div>
+      <div class="st"><b>{edu_stats.get('submitted', 0) + edu_stats.get('accepted', 0) + edu_stats.get('enrolled', 0)}</b><span>ارسال‌شده</span></div>
+      <div class="st"><b>{edu_stats.get('accepted', 0) + edu_stats.get('enrolled', 0)}</b><span>پذیرش گرفته</span></div>
+      <div class="st"><b>{edu_stats.get('open', 0)}</b><span>در جریان</span></div>
+    </div>"""
+
+    warn_html = ""
+    if warnings:
+        import datetime as _dt
+        today = _dt.date.today()
+        parts = []
+        for w in warnings[:8]:
+            dl = (w.get("deadline") or "")[:10]
+            try:
+                delta = (_dt.date.fromisoformat(dl) - today).days
+                when = f"{abs(delta)} روز گذشته" if delta < 0 else f"{delta} روز مانده"
+                tone = "var(--err)" if delta < 0 else "var(--amber)"
+            except ValueError:
+                when, tone = "—", "var(--muted)"
+            parts.append(
+                f"<li><b>{html.escape(w.get('title','?'))}</b> — مهلت {html.escape(dl or '—')}"
+                f" <span style='color:{tone};font-weight:700'>({when})</span>"
+                f" <span class='hint'>({html.escape(w.get('applicant',''))})</span></li>")
+        warn_html = (f'<div class="warn"><strong>⏳ مهلت‌های اپلیکیشن‌ها</strong>'
+                     f'<ul style="margin:8px 0 0">{"".join(parts)}</ul></div>')
+
+    def app_row(a):
+        st = a.get("status", "PLANNED")
+        emoji = _ec.APP_STATUS_EMOJI.get(st, "•") if HAS_EDU_CRAWLER else "•"
+        label = _ec.APP_STATUS_FA.get(st, st) if HAS_EDU_CRAWLER else st
+        dl = a.get("deadline") or ""
+        title = html.escape(a.get("title") or "?")
+        url = a.get("url") or ""
+        link = f'<a href="{html.escape(url)}" target="_blank" rel="noopener">{title}</a>' if url else title
+        opts = ""
+        if HAS_EDU_CRAWLER:
+            for k, _e, fa in _ec.APP_STATUSES:
+                sel = " selected" if k == st else ""
+                opts += f'<option value="{k}"{sel}>{fa}</option>'
+        dl_html = f'<span class="hint">{html.escape(dl)}</span>' if dl else '<span class="empty">—</span>'
+        return f"""
+        <div class="act-row">
+          <div class="cat">{emoji}</div>
+          <div style="flex:1; min-width:0">
+            <div class="ttl">{link}</div>
+            <div class="dt">
+              {html.escape(a.get('provider',''))}
+              {('· ' + html.escape(a.get('country',''))) if a.get('country') else ''}
+              {('· ' + html.escape(a.get('degree',''))) if a.get('degree') else ''}
+              · مهلت: {dl_html}
+              {('· 👤 ' + html.escape(a.get('applicant',''))) if a.get('applicant') else ''}
+            </div>
+            <form method="post" action="/education/app-status" style="margin-top:6px; display:flex; gap:6px; flex-wrap:wrap; align-items:center">
+              <input type="hidden" name="applicant" value="{html.escape(a.get('applicant',''))}">
+              <input type="hidden" name="key" value="{html.escape(url or a.get('title',''))}">
+              <select name="status" style="padding:4px 8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:.85rem">
+                {opts}
+              </select>
+              <input type="text" name="note" placeholder="یادداشت…" value=""
+                     style="flex:1; min-width:120px; padding:4px 8px; border:1px solid var(--line); border-radius:6px; font-family:inherit; font-size:.85rem">
+              <button class="btn" style="padding:5px 12px; font-size:.82rem" type="submit">ثبت</button>
+            </form>
+            <form method="post" action="/education/app-delete" style="display:inline">
+              <input type="hidden" name="applicant" value="{html.escape(a.get('applicant',''))}">
+              <input type="hidden" name="key" value="{html.escape(url or a.get('title',''))}">
+              <button class="btn" style="padding:2px 8px; font-size:.75rem; background:#a8432f" type="submit">حذف</button>
+            </form>
+          </div>
+        </div>"""
+
+    apps_html = (''.join(app_row(a) for a in apps)
+                 if apps else '<p class="empty">هنوز اپلیکیشنی ثبت نکرده‌ای — پایین‌تر فرم افزودن هست.</p>')
+
+    # فرم افزودن اپلیکیشن دستی
+    name_opts = "".join(f'<option value="{html.escape(n)}">{html.escape(n)}</option>' for n in names)
+    add_form = f"""
+    <section>
+      <h2>افزودن اپلیکیشن تحصیلی</h2>
+      <form method="post" action="/education/app-add" class="inline">
+        <label>برنامه
+          <input type="text" name="title" placeholder="مثلاً MSc Computer Science" required>
+        </label>
+        <label>دانشگاه / مؤسسه
+          <input type="text" name="provider" placeholder="University of Helsinki">
+        </label>
+        <label>کشور
+          <input type="text" name="country" placeholder="FI">
+        </label>
+        <label>مهلت اپلای
+          <input type="date" name="deadline">
+        </label>
+        <label>مدرک
+          <select name="degree">
+            <option value="">—</option><option>Bachelor</option><option>Master</option>
+            <option>PhD</option><option>Language</option><option>Certificate</option>
+          </select>
+        </label>
+        <label>زبان
+          <select name="language">
+            <option value="">—</option><option>English</option><option>Finnish</option>
+            <option>Swedish</option><option>Other</option>
+          </select>
+        </label>
+        <label>برای چه کسی
+          <select name="applicant">{name_opts}</select>
+        </label>
+        <label>لینک برنامه
+          <input type="text" name="url" placeholder="https://…" dir="ltr">
+        </label>
+        <label class="full">یادداشت
+          <input type="text" name="notes" placeholder="شرایط، زبان، هزینه، نکتهٔ مهم…">
+        </label>
+        <div class="full">
+          <button class="btn" type="submit">➕ افزودن به بانک اپلیکیشن</button>
+        </div>
+      </form>
+    </section>"""
+
+    # ── برنامه‌های کشف‌شده ──
+    results = _edu_load_results(t)
+    programs = results.get("programs", []) or []
+    prog_rows = ""
+    for i, p in enumerate(programs[:80], 1):
+        name = html.escape(p.get("name") or "?")
+        url = p.get("url") or ""
+        link = f'<a href="{html.escape(url)}" target="_blank" rel="noopener">{name}</a>' if url else name
+        add_btn = ""
+        if HAS_EDU_CRAWLER:
+            add_btn = f"""
+            <form method="post" action="/education/app-add" style="display:inline">
+              <input type="hidden" name="title" value="{html.escape(p.get('name',''))}">
+              <input type="hidden" name="provider" value="{html.escape(p.get('provider',''))}">
+              <input type="hidden" name="country" value="{html.escape(p.get('country',''))}">
+              <input type="hidden" name="url" value="{html.escape(url)}">
+              <input type="hidden" name="degree" value="{html.escape(p.get('degree',''))}">
+              <input type="hidden" name="language" value="{html.escape(p.get('language',''))}">
+              <input type="hidden" name="deadline" value="{html.escape(p.get('deadline','') or '')}">
+              <button class="btn" style="padding:3px 10px; font-size:.78rem" type="submit">➕ افزودن</button>
+            </form>"""
+        prog_rows += f"""
+        <tr>
+          <td>{i}</td>
+          <td class="name">{link} {add_btn}</td>
+          <td>{html.escape(p.get('provider','') or '—')}</td>
+          <td>{html.escape(p.get('degree','') or '—')}</td>
+          <td>{html.escape(p.get('language','') or '—')}</td>
+          <td>{html.escape(p.get('deadline','') or '—')}</td>
+        </tr>"""
+    prog_html = (f'<table class="files"><thead><tr><th>#</th><th>برنامه</th>'
+                 f'<th>دانشگاه</th><th>مدرک</th><th>زبان</th><th>مهلت</th>'
+                 f'</tr></thead><tbody>{prog_rows}</tbody></table>'
+                 if prog_rows else
+                 '<p class="empty">هنوز برنامه‌ای کشف نشده — از صفحهٔ اصلی مسیر «تحصیل» را اجرا کن.</p>')
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — 🎓 تحصیل</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <h1>🎓 مسیر تحصیل</h1>
+  {nav_html('education', t)}
+</header>
+<main>
+  {msg_html}
+  {warn_html}
+  <section>
+    <h2>بانک اپلیکیشن تحصیلی</h2>
+    {stats_html}
+    <p class="hint">هر اپلیکیشنی که ثبت کنی از «در نظر گرفته‌شده» تا «پذیرش» و «ثبت‌نام قطعی»
+    دنبال می‌شود. هر تغییر وضعیت با تاریخ در تاریخچهٔ خودش می‌ماند.</p>
+    {apps_html}
+  </section>
+  {add_form}
+  <section>
+    <h2>برنامه‌های کشف‌شده از منابع تحصیلی</h2>
+    {prog_html}
+    <p style="margin-top:14px">
+      <a class="btn" href="{with_track('/', t)}">🔴 گزارش زندهٔ تحصیل</a>
+      <a class="btn" href="{with_track('/files', t)}" style="background:var(--amber)">📁 فایل‌های تحصیل</a>
+    </p>
+  </section>
+</main>
+</body></html>"""
+
+def render_visa(applicant=None, message=None):
+    """تب نورد ویزای همراه — چک‌لیست مراحل + دفترچهٔ اکت‌ها.
+
+    چک‌لیست می‌گوید «چه کارهایی مانده»، دفترچهٔ اکت‌ها ثبت می‌کند «چه
+    کرده‌ای و کِی». اولی وضعیت است، دومی تاریخچه.
+    """
+    t = track_of(applicant and None)  # ویزا مستقل از مسیر کار/تحصیل است
+    t = DEFAULT_TRACK
+    if not HAS_VISA:
+        return f"""<!doctype html><html lang="fa"><head><meta charset="utf-8">
+<style>{PAGE_STYLE}</style></head><body><header class="top"><h1>🛂 نورد ویزا</h1>
+{nav_html('visa', t)}</header><main>
+<p class="empty">ماژول visa_tracker.py پیدا نشد.</p></main></body></html>"""
+
+    people = list(_vt.load_journey().get("people", {}).keys())
+    cur = applicant if applicant in people else (people[0] if people else None)
+
+    msg_html = f'<div class="warn">{html.escape(message)}</div>' if message else ""
+
+    # ── هشدار مهلت‌های نزدیک ──
+    soon = _vt.deadline_soon(30)
+    soon_html = ""
+    if soon:
+        items = "".join(
+            f"<li>{html.escape(x['applicant'])} — <b>{html.escape(x['act'].get('title','?'))}</b>: "
+            f"{('گذشته' if x['days'] < 0 else str(x['days']) + ' روز مانده')}</li>"
+            for x in soon[:8]
+        )
+        soon_html = f'<div class="warn"><strong>⏳ کارهای باز با مهلت نزدیک</strong><ul style="margin:8px 0 0">{items}</ul></div>'
+
+    if not cur:
+        # ── انتخاب/ساخت نورد ──
+        ppl = "".join(
+            f'<li><a href="/visa?applicant={html.escape(p)}">{html.escape(p)}</a></li>'
+            for p in people) or '<li class="empty">هنوز نوردی ساخته نشده</li>'
+        return f"""<!doctype html><html lang="fa"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — نورد ویزا</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style></head><body>
+<header class="top"><h1>🛂 نورد ویزای همراه</h1>{nav_html('visa', t)}</header>
+<main>
+  {msg_html}
+  <section>
+    <h2>نوردهای موجود</h2>
+    <ul>{ppl}</ul>
+  </section>
+  <section>
+    <h2>ساخت نورد جدید</h2>
+    <form method="post" action="/visa/new" class="inline">
+      <label>برای چه کسی
+        <input type="text" name="applicant" placeholder="اسم متقاضی" required>
+      </label>
+      <label>هدف ویزا
+        <input type="text" name="target" placeholder="مثلاً فنلاند — ویزای تحصیلی">
+      </label>
+      <div class="full">
+        <button class="btn" type="submit">🛂 شروع نورد</button>
+      </div>
+    </form>
+    <p class="hint">هر متقاضی نورد جداگانهٔ خودش را دارد — چک‌لیست و اکت‌ها قاطی نمی‌شوند.</p>
+  </section>
+</main></body></html>"""
+
+    st = _vt.journey_stats(cur)
+    journey = _vt.load_journey(cur)
+    stages = journey.get("stages", {}) or {}
+    acts = journey.get("acts", []) or []
+
+    # ── چک‌لیست ──
+    def stage_row(key, title, hint, cat):
+        e = stages.get(key) or {}
+        done = bool(e.get("done"))
+        mark = "☑" if done else ""
+        when = f'<span class="when">{html.escape(e.get("date",""))}</span>' if e.get("date") else ""
+        note = e.get("note") or ""
+        note_html = ""
+        if note:
+            note_html = (f'<form method="post" action="/visa/stage-note" style="display:inline">'
+                         f'<input type="hidden" name="applicant" value="{html.escape(cur)}">'
+                         f'<input type="hidden" name="key" value="{key}">'
+                         f'<input type="text" name="note" value="{html.escape(note)}" '
+                         f'placeholder="یادداشت…" style="width:130px;padding:2px 6px;font-size:.78rem;'
+                         f'border:1px solid var(--line);border-radius:5px;font-family:inherit">'
+                         f'<button class="btn" style="padding:1px 8px;font-size:.75rem" type="submit">💾</button>'
+                         f'</form>')
+        return f"""
+        <li class="{'done' if done else ''}">
+          <a class="box" href="/visa/toggle?applicant={html.escape(cur)}&key={key}" title="تیک بزن">{mark}</a>
+          <div style="flex:1">
+            <div><span class="t">{html.escape(title)}</span> {when} {note_html}</div>
+            <div class="h">{html.escape(hint)}</div>
+          </div>
+        </li>"""
+
+    checklist = ""
+    for cat in _vt.CAT_ORDER:
+        keys = [(k, t_, h_) for k, t_, h_, c_ in _vt.VISA_STAGES if c_ == cat]
+        if not keys:
+            continue
+        c = st["per_cat"][cat]
+        bar = f"{c['done']}/{c['total']}"
+        checklist += f"""<h3 style="font-size:.95rem;margin:18px 0 6px;color:var(--teal-deep)">
+          {_vt.CAT_FA[cat]} <span class="hint">({bar})</span></h3>
+          <ul class="check">{''.join(stage_row(*k, cat) for k in keys)}</ul>"""
+
+    # ── دفترچهٔ اکت‌ها ──
+    def act_row(a):
+        emoji = _vt.ACT_CAT_EMOJI.get(a.get("category", "other"), "📌")
+        date = a.get("date", "")
+        try:
+            delta = (datetime.now().date() - datetime.strptime(date[:10], "%Y-%m-%d").date()).days
+        except Exception:
+            delta = None
+        late = ""
+        if delta is not None and delta > 0 and not a.get("done"):
+            late = f' <span class="late">({delta} روز گذشته)</span>'
+        detail = f'<div class="dt">{html.escape(a.get("detail",""))}</div>' if a.get("detail") else ""
+        return f"""
+        <div class="act-row {'done' if a.get('done') else ''}">
+          <div class="cat">{emoji}</div>
+          <div style="flex:1; min-width:0">
+            <div class="ttl">{html.escape(a.get('title',''))}</div>
+            <div class="dt">{html.escape(date)}{late}</div>
+            {detail}
+          </div>
+          <div style="white-space:nowrap">
+            <a class="box" style="display:inline-flex; width:21px;height:21px;border:2px solid var(--line);
+               border-radius:5px; align-items:center; justify-content:center; text-decoration:none;
+               color:{'#fff' if a.get('done') else 'transparent'};
+               background:{'var(--ok)' if a.get('done') else '#fff'}"
+               href="/visa/act-toggle?applicant={html.escape(cur)}&id={a.get('id')}"
+               title="انجام شد">{'☑' if a.get('done') else ''}</a>
+            <form method="post" action="/visa/act-delete" style="display:inline">
+              <input type="hidden" name="applicant" value="{html.escape(cur)}">
+              <input type="hidden" name="id" value="{a.get('id')}">
+              <button class="btn" style="padding:1px 8px; font-size:.75rem; background:#a8432f" type="submit">✕</button>
+            </form>
+          </div>
+        </div>"""
+
+    acts_html = (''.join(act_row(a) for a in acts)
+                 if acts else '<p class="empty">هنوز کاری ثبت نکرده‌ای — پایین‌تر فرم ثبت هست.</p>')
+
+    act_cats = "".join(f'<option value="{k}">{e} {html.escape(fa)}</option>'
+                       for k, e, fa in _vt.ACT_CATEGORIES)
+
+    people_tabs = " · ".join(
+        f'<a href="/visa?applicant={html.escape(p)}" style="{"" if p == cur else "opacity:.6"}">'
+        f'{"● " if p == cur else ""}{html.escape(p)}</a>'
+        for p in people)
+
+    stale = _vt.overdue_stages(cur, 45)
+    stale_html = ""
+    if stale:
+        items = "".join(f"<li>{html.escape(s['title'])} <span class='hint'>({s['stale_days']} روز بی‌تیک)</span></li>"
+                        for s in stale[:6])
+        stale_html = f'<div class="warn"><strong>🕰️ مراحلی که مدت‌هاست بی‌تیک مانده‌اند</strong><ul style="margin:8px 0 0">{items}</ul></div>'
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — 🛂 نورد ویزا — {html.escape(cur)}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <h1>🛂 نورد ویزای همراه — {html.escape(cur)}</h1>
+  {nav_html('visa', t)}
+</header>
+<main>
+  {msg_html}
+  {soon_html}
+  {stale_html}
+
+  <section>
+    <div class="live-top">
+      <h2 style="border:none;margin:0">وضعیت نورد</h2>
+      <span class="hint">{people_tabs}</span>
+    </div>
+    <p class="hint">هدف: <b>{html.escape(st['target'] or '—')}</b></p>
+    <div class="stat-row">
+      <div class="st"><b>{st['pct']}%</b><span>پیشرفت چک‌لیست</span></div>
+      <div class="st"><b>{st['stages_done']}/{st['stages_total']}</b><span>مرحلهٔ انجام‌شده</span></div>
+      <div class="st"><b>{st['acts_total']}</b><span>کار ثبت‌شده</span></div>
+      <div class="st"><b>{st['acts_open']}</b><span>کار باز</span></div>
+    </div>
+    <div class="pbar"><span style="width:{st['pct']}%"></span></div>
+    <form method="post" action="/visa/target" style="margin-bottom:8px">
+      <input type="hidden" name="applicant" value="{html.escape(cur)}">
+      <input type="text" name="target" value="{html.escape(st['target'])}"
+             placeholder="هدف این نورد — مثلاً فنلاند، ویزای تحصیلی"
+             style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;font-family:inherit;width:min(420px,80%)">
+      <button class="btn" style="padding:6px 14px; font-size:.85rem" type="submit">ثبت هدف</button>
+    </form>
+  </section>
+
+  <section>
+    <h2>چک‌لیست مراحل</h2>
+    <p class="hint">روی هر مربع کلیک کن تا تیک بخورد و تاریخش ثبت شود.</p>
+    {checklist}
+  </section>
+
+  <section>
+    <h2>دفترچهٔ اقدامات</h2>
+    <p class="hint">هر کاری که انجام دادی را با تاریخ ثبت کن — بعداً همین تاریخچه ارزش دارد.</p>
+    {acts_html}
+    <form method="post" action="/visa/act-add" class="inline" style="margin-top:14px">
+      <input type="hidden" name="applicant" value="{html.escape(cur)}">
+      <label>دسته
+        <select name="category">{act_cats}</select>
+      </label>
+      <label>تاریخ
+        <input type="date" name="date" value="{datetime.now().strftime('%Y-%m-%d')}">
+      </label>
+      <label class="full">چه کاری کردی؟
+        <input type="text" name="title" placeholder="مثلاً مدارک ترجمهٔ رسمی را فرستادم" required>
+      </label>
+      <label class="full">جزئیات
+        <input type="text" name="detail" placeholder="شمارهٔ نامه، نتیجه، لینک، هرچه لازم است">
+      </label>
+      <div class="full"><button class="btn" type="submit">📌 ثبت اقدام</button></div>
+    </form>
+  </section>
+</main>
+</body></html>"""
 
 def render_xlsx_as_html(full_path, rel_path):
     if not HAS_OPENPYXL:
@@ -928,7 +1703,7 @@ def render_settings(message=None):
 <body>
 <header class="top">
   <h1>⚙️ تنظیمات</h1>
-  {nav_html('settings')}
+  {nav_html('settings', 'job')}
 </header>
 <main>
   {warn_html}
@@ -988,7 +1763,7 @@ def render_about():
 <body>
 <header class="top">
   <h1>ℹ️ این صفحه چیکار می‌کند</h1>
-  {nav_html('about')}
+  {nav_html('about', 'job')}
 </header>
 <main class="about">
 
@@ -1300,7 +2075,7 @@ def render_reports(applicant_id=None, message=None, error=None):
 <body>
 <header class="top">
   <h1>📑 گزارش‌ها</h1>
-  {nav_html('reports')}
+  {nav_html('reports', 'job')}
 </header>
 <main>
   {msg_html}
@@ -1325,6 +2100,10 @@ class Handler(BaseHTTPRequestHandler):
         pass  # ساکت — نویز کنسول را کم می‌کند
 
     def _send(self, body, status=200, content_type="text/html; charset=utf-8"):
+        # آیکون درون‌خطی را به هر صفحهٔ HTML تزریق می‌کنیم تا مرورگر
+        # برای /favicon.ico یک 404 بی‌دلیل نزند (در کنسول خطا نشان می‌داد)
+        if isinstance(body, str) and content_type.startswith("text/html") and FAVICON not in body:
+            body = body.replace("</head>", FAVICON + "\n</head>", 1)
         data = body.encode("utf-8") if isinstance(body, str) else body
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -1346,13 +2125,30 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         qs = parse_qs(parsed.query)
+        # مسیر فعال (job/education) از هر صفحه به صفحه منتقل می‌شود
+        track = (qs.get("track") or [None])[0]
 
         if parsed.path == "/":
-            self._send(render_index())
+            self._send(render_index(track))
+        elif parsed.path == "/education":
+            self._send(render_education((qs.get("msg") or [None])[0]))
         elif parsed.path == "/yield":
             self._send(render_yield())
         elif parsed.path == "/files":
             self._send(render_files())
+        elif parsed.path == "/visa":
+            self._send(render_visa((qs.get("applicant") or [None])[0],
+                                   (qs.get("msg") or [None])[0]))
+        elif parsed.path == "/visa/toggle":
+            ap = (qs.get("applicant") or [""])[0]
+            key = (qs.get("key") or [""])[0]
+            _vt.toggle_stage(ap, key)
+            self._redirect(f"/visa?applicant={ap}")
+        elif parsed.path == "/visa/act-toggle":
+            ap = (qs.get("applicant") or [""])[0]
+            aid = (qs.get("id") or [0])[0]
+            _vt.toggle_act(ap, aid)
+            self._redirect(f"/visa?applicant={ap}")
         elif parsed.path == "/settings":
             self._send(render_settings())
         elif parsed.path == "/about":
@@ -1406,14 +2202,87 @@ class Handler(BaseHTTPRequestHandler):
             self._send("<p>404</p>", status=404)
 
     def do_POST(self):
-        if self.path == "/run":
+        raw_path = urlparse(self.path).path
+        if raw_path == "/run":
             with run_lock:
                 already_running = run_state["running"]
             if not already_running:
-                threading.Thread(target=run_pipeline_background, daemon=True).start()
+                qs = parse_qs(urlparse(self.path).query)
+                track = (qs.get("track") or [None])[0]
+                threading.Thread(target=run_pipeline_background,
+                                 args=(track,), daemon=True).start()
             self._send(json.dumps({"ok": True}), content_type="application/json")
 
-        elif self.path == "/settings/applicant":
+        elif raw_path == "/education/app-add":
+            if not HAS_EDU_CRAWLER:
+                self._send(render_education("ماژول education_crawler.py پیدا نشد."), status=500)
+                return
+            f = self._read_form()
+            _ec.add_application(
+                applicant=f.get("applicant", "").strip(),
+                title=f.get("title", "").strip(),
+                provider=f.get("provider", "").strip(),
+                country=f.get("country", "").strip(),
+                url=f.get("url", "").strip(),
+                deadline=f.get("deadline", "").strip(),
+                degree=f.get("degree", "").strip(),
+                language=f.get("language", "").strip(),
+                notes=f.get("notes", "").strip(),
+            )
+            self._redirect("/education?msg=" + urllib.parse.quote("به بانک اپلیکیشن اضافه شد."))
+
+        elif raw_path == "/education/app-status":
+            if not HAS_EDU_CRAWLER:
+                self._send(render_education("ماژول education_crawler.py پیدا نشد."), status=500)
+                return
+            f = self._read_form()
+            _ec.set_app_status(f.get("applicant", "").strip(), f.get("key", ""),
+                               f.get("status", "PLANNED"), f.get("note", "").strip())
+            self._redirect("/education?msg=" + urllib.parse.quote("وضعیت اپلیکیشن ثبت شد."))
+
+        elif raw_path == "/education/app-delete":
+            if not HAS_EDU_CRAWLER:
+                self._send(render_education("ماژول education_crawler.py پیدا نشد."), status=500)
+                return
+            f = self._read_form()
+            _ec.remove_application(f.get("applicant", "").strip(), f.get("key", ""))
+            self._redirect("/education?msg=" + urllib.parse.quote("اپلیکیشن حذف شد."))
+
+        elif raw_path == "/visa/new":
+            if not HAS_VISA:
+                self._send("<p>ماژول ویزا نصب نیست.</p>", status=500)
+                return
+            f = self._read_form()
+            ap = f.get("applicant", "").strip()
+            if not ap:
+                self._send(render_visa(message="خطا: نام متقاضی الزامی است."), status=400)
+                return
+            _vt.set_target(ap, f.get("target", "").strip())
+            self._redirect("/visa?applicant=" + urllib.parse.quote(ap))
+
+        elif raw_path == "/visa/target":
+            f = self._read_form()
+            _vt.set_target(f.get("applicant", "").strip(), f.get("target", "").strip())
+            self._redirect("/visa?applicant=" + urllib.parse.quote(f.get("applicant", "")))
+
+        elif raw_path == "/visa/stage-note":
+            f = self._read_form()
+            _vt.set_note_stage(f.get("applicant", "").strip(), f.get("key", ""),
+                               f.get("note", "").strip())
+            self._redirect("/visa?applicant=" + urllib.parse.quote(f.get("applicant", "")))
+
+        elif raw_path == "/visa/act-add":
+            f = self._read_form()
+            _vt.add_act(f.get("applicant", "").strip(), f.get("category", "other"),
+                        f.get("title", ""), f.get("detail", ""), f.get("date") or None)
+            self._redirect("/visa?applicant=" + urllib.parse.quote(f.get("applicant", "")))
+
+        elif raw_path == "/visa/act-delete":
+            f = self._read_form()
+            _vt.delete_act(f.get("applicant", "").strip(), f.get("id", "0"))
+            self._redirect("/visa?applicant=" + urllib.parse.quote(f.get("applicant", "")))
+
+        elif raw_path == "/settings/applicant":
             form = self._read_form()
             if not form.get("id", "").strip():
                 self._send(render_settings(message="خطا: شناسه (id) الزامی است."), status=400)

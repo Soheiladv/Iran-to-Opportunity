@@ -1,3 +1,14 @@
 openpyxl>=3.1.0
 requests>=2.31.0
 python-dotenv>=1.0.0
+
+# مرورگر headless برای سایت‌های JS-only و منابع مسدود (Indeed، Studyinfo، …)
+# خود پکیج اختیاری است ولی بازده جستجو را چند برابر می‌کند.
+#
+# نکتهٔ مهم: بعد از نصب، این را اجرا کن:
+#     python -m playwright install chromium
+#
+# اگر دانلود Chromium به‌خاطر محدودیت جغرافیایی CDN شکست خورد، لازم نیست
+# کاری بکنی — job_crawler.py خودکار به Edge نصب‌شدهٔ ویندوز fallback می‌کند
+# (channel="msedge") و نیازی به دانلود نیست.
+playwright>=1.40.0

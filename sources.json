@@ -1,155 +1,1031 @@
 {
-  "sources": [
-    {"name": "Seek NZ", "country": "NZ", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.seek.co.nz", "search_urls": [
-       "https://www.seek.co.nz/jobs?keywords=it+manager",
-       "https://www.seek.co.nz/jobs?keywords=software+engineer",
-       "https://www.seek.co.nz/jobs?keywords=network+engineer",
-       "https://www.seek.co.nz/jobs?keywords=systems+administrator",
-       "https://www.seek.co.nz/jobs?keywords=midwife"
-     ], "trust": 85},
-    {"name": "Trade Me Jobs NZ", "country": "NZ", "type": "job_board", "enabled": true,
-     "url": "https://www.trademe.co.nz/jobs", "search_urls": [
-       "https://www.trademe.co.nz/jobs?search=it+manager",
-       "https://www.trademe.co.nz/jobs?search=midwife"
-     ], "trust": 78},
-    {"name": "Seek AU", "country": "AU", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.seek.com.au", "search_urls": [
-       "https://www.seek.com.au/jobs?keywords=it+manager",
-       "https://www.seek.com.au/jobs?keywords=infrastructure+engineer",
-       "https://www.seek.com.au/jobs?keywords=network+engineer",
-       "https://www.seek.com.au/jobs?keywords=software+engineer",
-       "https://www.seek.com.au/jobs?keywords=midwife"
-     ], "trust": 85},
-    {"name": "Indeed Australia", "country": "AU", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://au.indeed.com", "search_urls": [
-       "https://au.indeed.com/jobs?q=it+manager",
-       "https://au.indeed.com/jobs?q=infrastructure+engineer",
-       "https://au.indeed.com/jobs?q=software+engineer",
-       "https://au.indeed.com/jobs?q=midwife"
-     ], "trust": 72},
-    {"name": "Australian JobSearch (رسمی دولت)", "country": "AU", "type": "government", "enabled": true,
-     "url": "https://jobsearch.gov.au", "search_urls": [
-       "https://jobsearch.gov.au/jobs?keywords=it+manager",
-       "https://jobsearch.gov.au/jobs?keywords=software+engineer",
-       "https://jobsearch.gov.au/jobs?keywords=midwife"
-     ], "trust": 92},
-    {"name": "Job Bank Canada (رسمی دولت)", "country": "CA", "type": "government", "enabled": true,
-     "url": "https://www.jobbank.gc.ca", "search_urls": [
-       "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=it+manager&locationstring=",
-       "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=software+engineer&locationstring=",
-       "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=infrastructure+engineer&locationstring=",
-       "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife&locationstring="
-     ], "trust": 90},
-    {"name": "Indeed Canada", "country": "CA", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://ca.indeed.com", "search_urls": [
-       "https://ca.indeed.com/jobs?q=it+manager",
-       "https://ca.indeed.com/jobs?q=infrastructure+engineer",
-       "https://ca.indeed.com/jobs?q=software+engineer",
-       "https://ca.indeed.com/jobs?q=midwife"
-     ], "trust": 72},
-    {"name": "Monster Canada", "country": "CA", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.monster.ca", "search_urls": [
-       "https://www.monster.ca/jobs/search?q=it+manager",
-       "https://www.monster.ca/jobs/search?q=infrastructure+engineer"
-     ], "trust": 68},
-    {"name": "StepStone DE", "country": "DE", "type": "job_board", "enabled": true,
-     "url": "https://www.stepstone.de", "search_urls": [
-       "https://www.stepstone.de/jobs?su=it+manager",
-       "https://www.stepstone.de/jobs?su=software+entwickler",
-       "https://www.stepstone.de/jobs?su=netzwerk+techniker"
-     ], "trust": 80},
-    {"name": "Indeed DE", "country": "DE", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://de.indeed.com", "search_urls": [
-       "https://de.indeed.com/jobs?q=it+manager",
-       "https://de.indeed.com/jobs?q=software+entwickler",
-       "https://de.indeed.com/jobs?q=netzwerk+administrator"
-     ], "trust": 72},
-    {"name": "Bundesagentur für Arbeit (رسمی دولت آلمان)", "country": "DE", "type": "government", "enabled": true,
-     "url": "https://www.arbeitsagentur.de/jobsuche", "search_urls": [
-       "https://www.arbeitsagentur.de/jobsuche/suche?was=IT+Manager",
-       "https://www.arbeitsagentur.de/jobsuche/suche?was=Softwareentwickler",
-       "https://www.arbeitsagentur.de/jobsuche/suche?was=Netzwerk+Administrator"
-     ], "trust": 92},
-    {"name": "Make it in Germany (پورتال رسمی برای متخصصان خارجی)", "country": "DE", "type": "government", "enabled": true, "needs_js": true,
-     "url": "https://www.make-it-in-germany.com/en/jobs", "search_urls": [
-       "https://www.make-it-in-germany.com/en/jobs?search=it+manager",
-       "https://www.make-it-in-germany.com/en/jobs?search=software+engineer"
-     ], "trust": 88},
-    {"name": "Seek DE", "country": "DE", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.seek.de", "search_urls": [
-       "https://www.seek.de/jobs?keywords=it+manager",
-       "https://www.seek.de/jobs?keywords=software+entwickler",
-       "https://www.seek.de/jobs?keywords=netzwerk+techniker"
-     ], "trust": 82},
-    {"name": "IrishJobs", "country": "IE", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.irishjobs.ie", "search_urls": [
-       "https://www.irishjobs.ie/retailcareer?search=it+manager",
-       "https://www.irishjobs.ie/retailcareer?search=software+engineer",
-       "https://www.irishjobs.ie/retailcareer?search=network+engineer"
-     ], "trust": 68},
-    {"name": "Indeed Ireland", "country": "IE", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://ie.indeed.com", "search_urls": [
-       "https://ie.indeed.com/jobs?q=it+manager",
-       "https://ie.indeed.com/jobs?q=software+engineer",
-       "https://ie.indeed.com/jobs?q=network+engineer"
-     ], "trust": 72},
-    {"name": "jobs.ie", "country": "IE", "type": "job_board", "enabled": true,
-     "url": "https://www.jobs.ie", "search_urls": [
-       "https://www.jobs.ie/search/what=it+manager",
-       "https://www.jobs.ie/search/what=software+engineer"
-     ], "trust": 66},
-    {"name": "Indeed NL", "country": "NL", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://nl.indeed.com", "search_urls": [
-       "https://nl.indeed.com/jobs?q=it+manager",
-       "https://nl.indeed.com/jobs?q=software+ontwikkelaar",
-       "https://nl.indeed.com/jobs?q=netwerk+beheerder"
-     ], "trust": 72},
-    {"name": "Werk.nl (رسمی دولت هلند - UWV)", "country": "NL", "type": "government", "enabled": true,
-     "url": "https://www.werk.nl/vacatures", "search_urls": [
-       "https://www.werk.nl/vacatures/vacature-zoeken?keyword=IT+manager",
-       "https://www.werk.nl/vacatures/vacature-zoeken?keyword=software+ontwikkelaar"
-     ], "trust": 90},
-    {"name": "Undutchables (مخصوص متخصصان خارجی در هلند)", "country": "NL", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.undutchables.nl/en/jobs", "search_urls": [
-       "https://www.undutchables.nl/en/jobs?field_role_value=IT+manager",
-       "https://www.undutchables.nl/en/jobs?field_role_value=Software+Engineer"
-     ], "trust": 76},
-    {"name": "Belgian Job (رسمی دولت بلژیک)", "country": "BE", "type": "government", "enabled": true,
-     "url": "https://www.belgianjob.be", "search_urls": [
-       "https://www.belgianjob.be/en/vacancies?search_api_fulltext=IT+manager",
-       "https://www.belgianjob.be/en/vacancies?search_api_fulltext=software+engineer"
-     ], "trust": 88},
-    {"name": "EURES (پورتال شغلی اتحادیه اروپا)", "country": "EU", "type": "government", "enabled": true,
-     "url": "https://ec.europa.eu/eures", "search_urls": [
-       "https://ec.europa.eu/eures/eures-searchengine/page/jobs-search?keywordsEverywhere=IT+manager",
-       "https://ec.europa.eu/eures/eures-searchengine/page/jobs-search?keywordsEverywhere=software+engineer"
-     ], "trust": 93},
-    {"name": "TotalJobs UK", "country": "UK", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.totaljobs.com", "search_urls": [
-       "https://www.totaljobs.com/jobs/it+manager",
-       "https://www.totaljobs.com/jobs/software+engineer",
-       "https://www.totaljobs.com/jobs/network+engineer"
-     ], "trust": 75},
-    {"name": "Indeed UK", "country": "UK", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.indeed.co.uk", "search_urls": [
-       "https://www.indeed.co.uk/jobs?q=it+manager",
-       "https://www.indeed.co.uk/jobs?q=software+engineer",
-       "https://www.indeed.co.uk/jobs?q=network+engineer"
-     ], "trust": 72},
-    {"name": "Reed UK", "country": "UK", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.reed.co.uk", "search_urls": [
-       "https://www.reed.co.uk/jobs/it-manager",
-       "https://www.reed.co.uk/jobs/software-engineer",
-       "https://www.reed.co.uk/jobs/network-engineer"
-     ], "trust": 74},
-    {"name": "Monster UK", "country": "UK", "type": "job_board", "enabled": true, "needs_js": true,
-     "url": "https://www.monster.co.uk", "search_urls": [
-       "https://www.monster.co.uk/jobs/search?q=it+manager",
-       "https://www.monster.co.uk/jobs/search?q=software+engineer"
-     ], "trust": 68}
-  ],
-  "version": "2.0",
-  "last_updated": "2026-02-28",
-  "note": "همه آدرس‌ها با کیفیت و قابل دسترسی هستند"
+ "version": "3.0",
+ "last_updated": "2026-10-01",
+ "note": "مرجع واحد بانک منابع. track=job برای آگهی شغلی، track=education برای برنامهٔ تحصیلی. هیچ لیست هاردکدی در کد وجود ندارد — همه‌چیز از همین فایل خوانده می‌شود.",
+ "tracks": {
+  "job": {
+   "label": "🔍 کاریابی",
+   "crawler": "job_crawler.py",
+   "desc": "آگهی‌های شغلی — استخراج با JSON-LD JobPosting و لینک‌های آگهی"
+  },
+  "education": {
+   "label": "🎓 تحصیل",
+   "crawler": "education_crawler.py",
+   "desc": "برنامه‌های تحصیلی (کارشناسی/کارشناسی ارشد) — استخراج با JSON-LD Course و لینک‌های برنامه"
+  }
+ },
+ "countries": {
+  "FI": "فنلاند",
+  "DE": "آلمان",
+  "NL": "هلند",
+  "BE": "بلژیک",
+  "IE": "ایرلند",
+  "UK": "انگلستان",
+  "SE": "سوئد",
+  "DK": "دانمارک",
+  "NO": "نروژ",
+  "CH": "سوئیس",
+  "AT": "اتریش",
+  "CA": "کانادا",
+  "AU": "استرالیا",
+  "NZ": "نیوزیلند",
+  "FR": "فرانسه",
+  "ES": "اسپانیا",
+  "PT": "پرتغال",
+  "IT": "ایتالیا",
+  "PL": "لهستان",
+  "EU": "اتحادیهٔ اروپا"
+ },
+ "sources": [
+  {
+   "name": "Job Market Finland (رسمی دولت فنلاند)",
+   "track": "job",
+   "country": "FI",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://tyomarkkinatori.fi/en/personal-customers",
+   "search_urls": [
+    "https://tyomarkkinatori.fi/en/personal-customers/vacancies",
+    "https://tyomarkkinatori.fi/en/personal-customers/vacancies?keyword=it+manager",
+    "https://tyomarkkinatori.fi/en/personal-customers/vacancies?keyword=software+engineer",
+    "https://tyomarkkinatori.fi/en/personal-customers/vacancies?keyword=nurse",
+    "https://tyomarkkinatori.fi/en/personal-customers/vacancies?keyword=social+worker"
+   ],
+   "trust": 95
+  },
+  {
+   "name": "Work in Finland (پورتال رسمی متخصصان خارجی)",
+   "track": "job",
+   "country": "FI",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.workinfinland.com/en",
+   "search_urls": [
+    "https://www.workinfinland.com/en/open-jobs",
+    "https://www.workinfinland.com/en/open-jobs?keyword=it",
+    "https://www.workinfinland.com/en/open-jobs?keyword=nursing"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Kuntarekry (مشاغل شهرداری‌ها و خدمات رفاه فنلاند)",
+   "track": "job",
+   "country": "FI",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.kuntarekry.fi/en/jobs",
+   "search_urls": [
+    "https://www.kuntarekry.fi/en/jobs/",
+    "https://www.kuntarekry.fi/en/",
+    "https://www.kuntarekry.fi/en/open-job-search-results/"
+   ],
+   "trust": 88
+  },
+  {
+   "name": "Indeed Finland",
+   "track": "job",
+   "country": "FI",
+   "type": "job_board",
+   "enabled": false,
+   "needs_js": true,
+   "url": "https://fi.indeed.com",
+   "search_urls": [
+    "https://fi.indeed.com/jobs?q=it+manager",
+    "https://fi.indeed.com/jobs?q=software+engineer",
+    "https://fi.indeed.com/jobs?q=terveydenhoitaja",
+    "https://fi.indeed.com/jobs?q=warehouse+worker"
+   ],
+   "trust": 72,
+   "disabled_reason": "Cloudflare سخت — حتی با مرورگر headless پاسخ نمی‌دهد؛ URL را دور بزن یا منبع جایگزین بگذار"
+  },
+  {
+   "name": "Tehtävä FI (آگهی مستقیم)",
+   "track": "job",
+   "country": "FI",
+   "type": "job_board",
+   "enabled": false,
+   "url": "https://www.tehtavafi.fi",
+   "search_urls": [
+    "https://www.tehtavafi.fi/?q=it",
+    "https://www.tehtavafi.fi/?q=hoitaja"
+   ],
+   "trust": 58,
+   "disabled_reason": "Cloudflare سخت — حتی با مرورگر headless پاسخ نمی‌دهد؛ URL را دور بزن یا منبع جایگزین بگذار"
+  },
+  {
+   "name": "Study in Finland (پورتال رسمی — Finnish National Agency for Education)",
+   "track": "education",
+   "country": "FI",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.studyinfinland.fi/",
+   "search_urls": [
+    "https://www.studyinfinland.fi/",
+    "https://www.studyinfinland.fi/universities",
+    "https://www.studyinfinland.fi/universities-list-view",
+    "https://www.studyinfinland.fi/admissions",
+    "https://www.studyinfinland.fi/admissions/bachelors-and-masters-admissions",
+    "https://www.studyinfinland.fi/scholarships-and-fees",
+    "https://www.studyinfinland.fi/visa-residence-permit"
+   ],
+   "trust": 96
+  },
+  {
+   "name": "Studyinfo.fi (پورتال رسمی اپلیکیشن فنلاند)",
+   "track": "education",
+   "country": "FI",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://studyinfo.fi/konfo/en/",
+   "search_urls": [
+    "https://studyinfo.fi/konfo/en/",
+    "https://studyinfo.fi/konfo/en/haku?opetuskieli=oppilaitoksenopetuskieli_4",
+    "https://studyinfo.fi/konfo/en/sivu/how-to-apply-in-joint-application-to-higher-education",
+    "https://studyinfo.fi/konfo/en/sivu/application-periods",
+    "https://studyinfo.fi/konfo/en/sivu/application-fee",
+    "https://studyinfo.fi/konfo/en/sivu/tuition-fees-and-scholarships"
+   ],
+   "trust": 97
+  },
+  {
+   "name": "UASinfo.fi (دانشگاه‌های علوم کاربردی فنلاند)",
+   "track": "education",
+   "country": "FI",
+   "type": "education_portal",
+   "enabled": false,
+   "needs_js": true,
+   "url": "https://www.uasinfo.fi/study-programmes/",
+   "search_urls": [
+    "https://www.uasinfo.fi/study-programmes/",
+    "https://www.uasinfo.fi/studying/",
+    "https://www.uasinfo.fi/index.php/en/studies/"
+   ],
+   "trust": 90,
+   "disabled_reason": "صفحه فقط فهرست خالی است و برنامه‌ها را در Studyinfo.fi منتشر می‌کند؛ به‌عنوان منبع تحصیل بی‌بازده است"
+  },
+  {
+   "name": "Seek NZ",
+   "track": "job",
+   "country": "NZ",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.seek.co.nz",
+   "search_urls": [
+    "https://www.seek.co.nz/jobs?keywords=it+manager",
+    "https://www.seek.co.nz/jobs?keywords=software+engineer",
+    "https://www.seek.co.nz/jobs?keywords=network+engineer",
+    "https://www.seek.co.nz/jobs?keywords=systems+administrator",
+    "https://www.seek.co.nz/jobs?keywords=midwife"
+   ],
+   "trust": 85
+  },
+  {
+   "name": "Trade Me Jobs NZ",
+   "track": "job",
+   "country": "NZ",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.trademe.co.nz/jobs",
+   "search_urls": [
+    "https://www.trademe.co.nz/jobs?search=it+manager",
+    "https://www.trademe.co.nz/jobs?search=midwife"
+   ],
+   "trust": 78
+  },
+  {
+   "name": "Seek AU",
+   "track": "job",
+   "country": "AU",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.seek.com.au",
+   "search_urls": [
+    "https://www.seek.com.au/jobs?keywords=it+manager",
+    "https://www.seek.com.au/jobs?keywords=infrastructure+engineer",
+    "https://www.seek.com.au/jobs?keywords=network+engineer",
+    "https://www.seek.com.au/jobs?keywords=software+engineer",
+    "https://www.seek.com.au/jobs?keywords=midwife"
+   ],
+   "trust": 85
+  },
+  {
+   "name": "Indeed Australia",
+   "track": "job",
+   "country": "AU",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://au.indeed.com",
+   "search_urls": [
+    "https://au.indeed.com/jobs?q=it+manager",
+    "https://au.indeed.com/jobs?q=infrastructure+engineer",
+    "https://au.indeed.com/jobs?q=software+engineer",
+    "https://au.indeed.com/jobs?q=midwife"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Australian JobSearch (رسمی دولت)",
+   "track": "job",
+   "country": "AU",
+   "type": "government",
+   "enabled": true,
+   "url": "https://jobsearch.gov.au",
+   "search_urls": [
+    "https://jobsearch.gov.au/jobs?keywords=it+manager",
+    "https://jobsearch.gov.au/jobs?keywords=software+engineer",
+    "https://jobsearch.gov.au/jobs?keywords=midwife"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "Job Bank Canada (رسمی دولت)",
+   "track": "job",
+   "country": "CA",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.jobbank.gc.ca",
+   "search_urls": [
+    "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=it+manager&locationstring=",
+    "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=software+engineer&locationstring=",
+    "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=infrastructure+engineer&locationstring=",
+    "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife&locationstring="
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Indeed Canada",
+   "track": "job",
+   "country": "CA",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://ca.indeed.com",
+   "search_urls": [
+    "https://ca.indeed.com/jobs?q=it+manager",
+    "https://ca.indeed.com/jobs?q=infrastructure+engineer",
+    "https://ca.indeed.com/jobs?q=software+engineer",
+    "https://ca.indeed.com/jobs?q=midwife"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Monster Canada",
+   "track": "job",
+   "country": "CA",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.monster.ca",
+   "search_urls": [
+    "https://www.monster.ca/jobs/search?q=it+manager",
+    "https://www.monster.ca/jobs/search?q=infrastructure+engineer"
+   ],
+   "trust": 68
+  },
+  {
+   "name": "Educanada (فهرست برنامه‌های تحصیلی کانادا)",
+   "track": "education",
+   "country": "CA",
+   "type": "education_portal",
+   "enabled": true,
+   "url": "https://www.educanada.ca",
+   "search_urls": [
+    "https://www.educanada.ca/en/study-in-canada",
+    "https://www.educanada.ca/en/find-a-school",
+    "https://www.educanada.ca/en/study-in-canada/permit"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "StepStone DE",
+   "track": "job",
+   "country": "DE",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.stepstone.de",
+   "search_urls": [
+    "https://www.stepstone.de/jobs?su=it+manager",
+    "https://www.stepstone.de/jobs?su=softwareentwickler",
+    "https://www.stepstone.de/jobs?su=netzwerktechniker",
+    "https://www.stepstone.de/jobs?su=pflegekraft"
+   ],
+   "trust": 80
+  },
+  {
+   "name": "Indeed DE",
+   "track": "job",
+   "country": "DE",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://de.indeed.com",
+   "search_urls": [
+    "https://de.indeed.com/jobs?q=it+manager",
+    "https://de.indeed.com/jobs?q=softwareentwickler",
+    "https://de.indeed.com/jobs?q=netzwerkadministrator",
+    "https://de.indeed.com/jobs?q=pflegekraft"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Bundesagentur für Arbeit (رسمی دولت آلمان)",
+   "track": "job",
+   "country": "DE",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.arbeitsagentur.de/jobsuche",
+   "search_urls": [
+    "https://www.arbeitsagentur.de/jobsuche/suche?was=IT+Manager",
+    "https://www.arbeitsagentur.de/jobsuche/suche?was=Softwareentwickler",
+    "https://www.arbeitsagentur.de/jobsuche/suche?was=Netzwerk+Administrator"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "Make it in Germany (پورتال رسمی برای متخصصان خارجی)",
+   "track": "job",
+   "country": "DE",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.make-it-in-germany.com/en/jobs",
+   "search_urls": [
+    "https://www.make-it-in-germany.com/en/jobs?search=it+manager",
+    "https://www.make-it-in-germany.com/en/jobs?search=software+engineer"
+   ],
+   "trust": 88
+  },
+  {
+   "name": "Make it in Germany — تحصیل در آلمان",
+   "track": "education",
+   "country": "DE",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.make-it-in-germany.com/en/study",
+   "search_urls": [
+    "https://www.make-it-in-germany.com/en/study",
+    "https://www.make-it-in-germany.com/en/study/study-in-germany",
+    "https://www.make-it-in-germany.com/en/study/visa-and-residence-permit"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "DAAD (پورتال رسمی تحصیل و بورسیهٔ آلمان)",
+   "track": "education",
+   "country": "DE",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.daad.de/en/studying-in-germany/",
+   "search_urls": [
+    "https://www.daad.de/en/studying-in-germany/",
+    "https://www.daad.de/en/studying-in-germany/universities/",
+    "https://www.daad.de/en/studying-in-germany/scholarships/",
+    "https://www.daad.de/en/studying-in-germany/requirements/admission-database"
+   ],
+   "trust": 95
+  },
+  {
+   "name": "Hochschulkompass (رسمی — کمیسیون سران دانشگاه‌های آلمان)",
+   "track": "education",
+   "country": "DE",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.hochschulkompass.de/en/studium/",
+   "search_urls": [
+    "https://www.hochschulkompass.de/en/studium/",
+    "https://www.hochschulkompass.de/en/studium/study-programmes.html",
+    "https://www.hochschulkompass.de/en/studium/international-degree-programmes.html"
+   ],
+   "trust": 94
+  },
+  {
+   "name": "Seek DE",
+   "track": "job",
+   "country": "DE",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.seek.de",
+   "search_urls": [
+    "https://www.seek.de/jobs?keywords=it+manager",
+    "https://seek.de/jobs?keywords=software+entwickler",
+    "https://www.seek.de/jobs?keywords=netzwerktechniker"
+   ],
+   "trust": 82
+  },
+  {
+   "name": "IrishJobs",
+   "track": "job",
+   "country": "IE",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.irishjobs.ie",
+   "search_urls": [
+    "https://www.irishjobs.ie/retailcareer?search=it+manager",
+    "https://www.irishjobs.ie/retailcareer?search=software+engineer",
+    "https://www.irishjobs.ie/retailcareer?search=network+engineer"
+   ],
+   "trust": 68
+  },
+  {
+   "name": "Indeed Ireland",
+   "track": "job",
+   "country": "IE",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://ie.indeed.com",
+   "search_urls": [
+    "https://ie.indeed.com/jobs?q=it+manager",
+    "https://ie.indeed.com/jobs?q=software+engineer",
+    "https://ie.indeed.com/jobs?q=network+engineer"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "jobs.ie",
+   "track": "job",
+   "country": "IE",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.jobs.ie",
+   "search_urls": [
+    "https://www.jobs.ie/search/what=it+manager",
+    "https://www.jobs.ie/search/what=software+engineer"
+   ],
+   "trust": 66
+  },
+  {
+   "name": "Indeed NL",
+   "track": "job",
+   "country": "NL",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://nl.indeed.com",
+   "search_urls": [
+    "https://nl.indeed.com/jobs?q=it+manager",
+    "https://nl.indeed.com/jobs?q=software+ontwikkelaar",
+    "https://nl.indeed.com/jobs?q=netwerkbeheerder"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Werk.nl (رسمی دولت هلند - UWV)",
+   "track": "job",
+   "country": "NL",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.werk.nl/vacatures",
+   "search_urls": [
+    "https://www.werk.nl/vacatures/vacature-zoeken?keyword=IT+manager",
+    "https://www.werk.nl/vacatures/vacature-zoeken?keyword=software+ontwikkelaar"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Undutchables (مخصوص متخصصان خارجی در هلند)",
+   "track": "job",
+   "country": "NL",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.undutchables.nl/en/jobs",
+   "search_urls": [
+    "https://www.undutchables.nl/en/jobs?field_role_value=IT+manager",
+    "https://www.undutchables.nl/en/jobs?field_role_value=Software+Engineer"
+   ],
+   "trust": 76
+  },
+  {
+   "name": "Study in NL (پورتال رسمی تحصیل در هلند)",
+   "track": "education",
+   "country": "NL",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.studyinnl.org/",
+   "search_urls": [
+    "https://www.studyinnl.org/",
+    "https://www.studyinnl.org/education-in-the-netherlands",
+    "https://www.studyinnl.org/financials",
+    "https://www.studyinnl.org/residence-permit"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "Belgian Job (رسمی دولت بلژیک)",
+   "track": "job",
+   "country": "BE",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.belgianjob.be",
+   "search_urls": [
+    "https://www.belgianjob.be/en/vacancies?search_api_fulltext=IT+manager",
+    "https://www.belgianjob.be/en/vacancies?search_api_fulltext=software+engineer"
+   ],
+   "trust": 88
+  },
+  {
+   "name": "EURES (پورتال شغلی اتحادیهٔ اروپا)",
+   "track": "job",
+   "country": "EU",
+   "type": "government",
+   "enabled": true,
+   "url": "https://ec.europa.eu/eures",
+   "search_urls": [
+    "https://ec.europa.eu/eures/eures-searchengine/page/jobs-search?keywordsEverywhere=IT+manager",
+    "https://ec.europa.eu/eures/eures-searchengine/page/jobs-search?keywordsEverywhere=software+engineer"
+   ],
+   "trust": 93
+  },
+  {
+   "name": "TotalJobs UK",
+   "track": "job",
+   "country": "UK",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.totaljobs.com",
+   "search_urls": [
+    "https://www.totaljobs.com/jobs/it+manager",
+    "https://www.totaljobs.com/jobs/software+engineer",
+    "https://www.totaljobs.com/jobs/network+engineer"
+   ],
+   "trust": 75
+  },
+  {
+   "name": "Indeed UK",
+   "track": "job",
+   "country": "UK",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.indeed.co.uk",
+   "search_urls": [
+    "https://www.indeed.co.uk/jobs?q=it+manager",
+    "https://www.indeed.co.uk/jobs?q=software+engineer",
+    "https://www.indeed.co.uk/jobs?q=network+engineer"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Reed UK",
+   "track": "job",
+   "country": "UK",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.reed.co.uk",
+   "search_urls": [
+    "https://www.reed.co.uk/jobs/it-manager",
+    "https://www.reed.co.uk/jobs/software-engineer",
+    "https://www.reed.co.uk/jobs/network-engineer"
+   ],
+   "trust": 74
+  },
+  {
+   "name": "Monster UK",
+   "track": "job",
+   "country": "UK",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.monster.co.uk",
+   "search_urls": [
+    "https://www.monster.co.uk/jobs/search?q=it+manager",
+    "https://www.monster.co.uk/jobs/search?q=software+engineer"
+   ],
+   "trust": 68
+  },
+  {
+   "name": "UCAS (تحصیل انگلستان)",
+   "track": "education",
+   "country": "UK",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.ucas.com",
+   "search_urls": [
+    "https://www.ucas.com/international",
+    "https://www.ucas.com/courses",
+    "https://www.ucas.com/international/international-students"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Platsbanken (رسمی دولت سوئد — Arbetsförmedlingen)",
+   "track": "job",
+   "country": "SE",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.platsbanken.se",
+   "search_urls": [
+    "https://www.platsbanken.se/jobs?query=it+manager",
+    "https://www.platsbanken.se/jobs?query=systemutvecklare",
+    "https://www.platsbanken.se/jobs?query=sjukskoterska"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "Indeed Sweden",
+   "track": "job",
+   "country": "SE",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.indeed.se",
+   "search_urls": [
+    "https://www.indeed.se/jobs?q=it+manager",
+    "https://www.indeed.se/jobs?q=systemutvecklare",
+    "https://www.indeed.se/jobs?q=sjukskoterska"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Jobindex SE",
+   "track": "job",
+   "country": "SE",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.jobindex.se",
+   "search_urls": [
+    "https://www.jobindex.se/jobs/it-manager",
+    "https://www.jobindex.se/jobs/utvecklare"
+   ],
+   "trust": 70
+  },
+  {
+   "name": "University of Helsinki — Admissions",
+   "track": "education",
+   "country": "FI",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.helsinki.fi/en/admissions-and-education/search-programmes-and-courses",
+   "search_urls": [
+    "https://www.helsinki.fi/en/admissions-and-education/search-programmes-and-courses",
+    "https://www.helsinki.fi/en/admissions-and-education/apply-bachelors-and-masters-programmes",
+    "https://studies.helsinki.fi/frontpage"
+   ],
+   "trust": 80
+  },
+  {
+   "name": "Jobnet (رسمی دولت دانمارک)",
+   "track": "job",
+   "country": "DK",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://job.jobnet.dk",
+   "search_urls": [
+    "https://job.jobnet.dk/CV/FindWork/SearchWork?Searchstring=it",
+    "https://job.jobnet.dk/CV/FindWork/SearchWork?Searchstring=sygeplejerske"
+   ],
+   "trust": 92
+  },
+  {
+   "name": "Jobindex DK",
+   "track": "job",
+   "country": "DK",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.jobindex.dk",
+   "search_urls": [
+    "https://www.jobindex.dk/jobsoegning?q=it+manager",
+    "https://www.jobindex.dk/jobsoegning?q=softwareudvikler"
+   ],
+   "trust": 74
+  },
+  {
+   "name": "Indeed Denmark",
+   "track": "job",
+   "country": "DK",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://dk.indeed.com",
+   "search_urls": [
+    "https://dk.indeed.com/jobs?q=it+manager",
+    "https://dk.indeed.com/jobs?q=softwareudvikler"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Finn.no — Jobb (بزرگ‌ترین بورد نروژ)",
+   "track": "job",
+   "country": "NO",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.finn.no/job",
+   "search_urls": [
+    "https://www.finn.no/job/brickinge/utdanning-og-barnehage",
+    "https://www.finn.no/job/brickinge/data-it"
+   ],
+   "trust": 80
+  },
+  {
+   "name": "NAV-arbeidsliv (رسمی دولت نروژ)",
+   "track": "job",
+   "country": "NO",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://arbeidsliv.nav.no",
+   "search_urls": [
+    "https://arbeidsliv.nav.no/en/search",
+    "https://arbeidsliv.nav.no/ledige-stillinger"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Jobup CH",
+   "track": "job",
+   "country": "CH",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.jobup.ch",
+   "search_urls": [
+    "https://www.jobup.ch/en/search?query=it+manager",
+    "https://www.jobup.ch/en/search?query=software+engineer",
+    "https://www.jobup.ch/en/search?query=pflege"
+   ],
+   "trust": 78
+  },
+  {
+   "name": "SwissJobs CH",
+   "track": "job",
+   "country": "CH",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.swissjobs.ch",
+   "search_urls": [
+    "https://www.swissjobs.ch/en/job-search/?q=it+manager",
+    "https://www.swissjobs.ch/en/job-search/?q=software+engineer"
+   ],
+   "trust": 70
+  },
+  {
+   "name": "Indeed Switzerland",
+   "track": "job",
+   "country": "CH",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://ch.indeed.com",
+   "search_urls": [
+    "https://ch.indeed.com/jobs?q=it+manager",
+    "https://ch.indeed.com/jobs?q=software+engineer"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "AMS Österreich (رسمی دولت)",
+   "track": "job",
+   "country": "AT",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.ams.at",
+   "search_urls": [
+    "https://jobsuche.ams.at/",
+    "https://www.ams.at/arbeitsuche/jobsuche"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "StepStone AT",
+   "track": "job",
+   "country": "AT",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.stepstone.at",
+   "search_urls": [
+    "https://www.stepstone.at/jobs/it-manager",
+    "https://www.stepstone.at/jobs/softwareentwickler"
+   ],
+   "trust": 76
+  },
+  {
+   "name": "Indeed Austria",
+   "track": "job",
+   "country": "AT",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://at.indeed.com",
+   "search_urls": [
+    "https://at.indeed.com/jobs?q=it+manager",
+    "https://at.indeed.com/jobs?q=softwareentwickler"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Pôle emploi / France Travail (رسمی دولت فرانسه)",
+   "track": "job",
+   "country": "FR",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.francetravail.fr",
+   "search_urls": [
+    "https://candidat.francetravail.fr/recherche-emploi.html",
+    "https://candidat.francetravail.fr/recherche-emploi.html?offreActive=true&keyword=developpeur"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "Indeed France",
+   "track": "job",
+   "country": "FR",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://fr.indeed.com",
+   "search_urls": [
+    "https://fr.indeed.com/jobs?q=developpeur",
+    "https://fr.indeed.com/jobs?q=ingenieur"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Campus France (تحصیل فرانسه)",
+   "track": "education",
+   "country": "FR",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.campusfrance.org",
+   "search_urls": [
+    "https://www.campusfrance.org/en",
+    "https://www.campusfrance.org/en/Programs",
+    "https://www.campusfrance.org/en/Financing"
+   ],
+   "trust": 90
+  },
+  {
+   "name": "SEPE (رسمی دولت اسپانیا)",
+   "track": "job",
+   "country": "ES",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.sepe.es",
+   "search_urls": [
+    "https://www.sepe.es/HomeSepe/que-es-el-sepe.html",
+    "https://www.servicioempleo.gob.es/"
+   ],
+   "trust": 84
+  },
+  {
+   "name": "InfoJobs ES",
+   "track": "job",
+   "country": "ES",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.infojobs.net",
+   "search_urls": [
+    "https://www.infojobs.net/trabajo-de-desarrollador-de-software",
+    "https://www.infojobs.net/trabajo-de-enfermero"
+   ],
+   "trust": 74
+  },
+  {
+   "name": "Indeed España",
+   "track": "job",
+   "country": "ES",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://es.indeed.com",
+   "search_urls": [
+    "https://es.indeed.com/jobs?q=desarrollador+software",
+    "https://es.indeed.com/jobs?q=enfermero"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "IEFP / Emprego PT (رسمی دولت پرتغال)",
+   "track": "job",
+   "country": "PT",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://emprego.pt",
+   "search_urls": [
+    "https://emprego.pt/",
+    "https://candidatos.emprego.pt/"
+   ],
+   "trust": 88
+  },
+  {
+   "name": "Indeed Portugal",
+   "track": "job",
+   "country": "PT",
+   "type": "job_board",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://pt.indeed.com",
+   "search_urls": [
+    "https://pt.indeed.com/jobs?q=desenvolvedor",
+    "https://pt.indeed.com/jobs?q=enfermeiro"
+   ],
+   "trust": 72
+  },
+  {
+   "name": "Lavoro.gov.it (رسمی دولت ایتالیا)",
+   "track": "job",
+   "country": "IT",
+   "type": "government",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.lavoro.gov.it",
+   "search_urls": [
+    "https://www.lavoro.gov.it/strumenti-e-servizi/cerca-lavoro",
+    "https://www.lavoro.gov.it/titolo-di-studio/curriculum"
+   ],
+   "trust": 84
+  },
+  {
+   "name": "InfoJobs IT",
+   "track": "job",
+   "country": "IT",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.infojobs.it",
+   "search_urls": [
+    "https://www.infojobs.it/lavoro-sviluppatore.html",
+    "https://www.infojobs.it/lavoro-infermiere.html"
+   ],
+   "trust": 74
+  },
+  {
+   "name": "BeZrobótcy.gov.pl (رسمی دولت لهستان)",
+   "track": "job",
+   "country": "PL",
+   "type": "government",
+   "enabled": true,
+   "url": "https://www.bezrobotnicy.gov.pl",
+   "search_urls": [
+    "https://www.bezrobotnicy.gov.pl/",
+    "https://praca.gov.pl/"
+   ],
+   "trust": 86
+  },
+  {
+   "name": "Pracuj.pl",
+   "track": "job",
+   "country": "PL",
+   "type": "job_board",
+   "enabled": true,
+   "url": "https://www.pracuj.pl",
+   "search_urls": [
+    "https://www.pracuj.pl/praca/programista",
+    "https://www.pracuj.pl/praca/pielegniarka"
+   ],
+   "trust": 76
+  },
+  {
+   "name": "Study in Australia (رسمی دولت)",
+   "track": "education",
+   "country": "AU",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.studyaustralia.gov.au",
+   "search_urls": [
+    "https://www.studyaustralia.gov.au/",
+    "https://www.studyaustralia.gov.au/how-to-apply",
+    "https://www.education.gov.au/international-education"
+   ],
+   "trust": 93
+  },
+  {
+   "name": "Study in New Zealand (رسمی دولت)",
+   "track": "education",
+   "country": "NZ",
+   "type": "education_portal",
+   "enabled": true,
+   "needs_js": true,
+   "url": "https://www.studyinzl.gov.nz",
+   "search_urls": [
+    "https://www.studyinzl.gov.nz/",
+    "https://www.studyinzl.gov.nz/how-to-apply"
+   ],
+   "trust": 92
+  }
+ ]
 }

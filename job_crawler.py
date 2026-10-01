@@ -18,21 +18,79 @@ except ImportError:
     HAS_PLAYWRIGHT = False
 
 # مرورگر headless — اول Chromium، اگر نبود Edge/Chrome ویندوز (نیازی به دانلود ندارد)
-_PW = None      # context playwright — یک‌بار start، در _close_browser متوقف می‌شود
+#
+# نکته: دانلود Chromium از CDN پلی‌رایت در بعضی کشورها ۴۰۳ می‌خورد، ولی
+# Edge روی هر ویندوزی هست. کانالی که جواب داد را کش می‌کنیم تا هر صفحه
+# سه بار تلاش نکنیم.
+_PW = None       # context playwright — یک‌بار start، در _close_browser متوقف می‌شود
 _BROWSER = None  # نگه‌داشتن مرورگر بین منابع — یک‌بار launch می‌شود
+_BROWSER_CHANNEL = None  # کانالی که واقعاً جواب داد
+_BROWSER_PROBE = None    # نتیجهٔ تست در این thread (None = هنوز تست نشده)
+
 
 def _launch_browser(playwright):
-    for kwargs in ({}, {"channel": "msedge"}, {"channel": "chrome"}):
+    global _BROWSER_CHANNEL, _HAS_ANY_BROWSER
+    channels = ([_BROWSER_CHANNEL] if _BROWSER_CHANNEL else []) + ["chromium", "msedge", "chrome"]
+    seen = set()
+    for ch in channels:
+        if ch in seen:
+            continue
+        seen.add(ch)
         try:
-            return playwright.chromium.launch(headless=True, **kwargs)
+            browser = playwright.chromium.launch(
+                headless=True, **({"channel": ch} if ch != "chromium" else {}))
+            _BROWSER_CHANNEL = ch
+            _HAS_ANY_BROWSER = True
+            return browser
         except Exception:
             continue
+    _HAS_ANY_BROWSER = False
     return None
+
+
+def browser_available():
+    """آیا مرورگر headless روی همین thread قابل استفاده است؟
+
+    sync_playwright به یک thread قفل می‌شود: اگر اولین بار در یک thread کارگر
+    باز شود، همان‌جا می‌ماند و در thread بعدی «Cannot switch to a different
+    thread» می‌دهد. برای همین بررسی را سراسری نگه نمی‌داریم و هر بار در
+    thread فعلی امتحان می‌کنیم.
+    """
+    if not HAS_PLAYWRIGHT:
+        return False
+    global _BROWSER_PROBE
+    if _PW is not None:
+        return True
+    if _BROWSER_PROBE is not None:
+        return _BROWSER_PROBE
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            if _launch_browser(pw) is None:
+                _BROWSER_PROBE = False
+            else:
+                _BROWSER_PROBE = True
+    except Exception:
+        _BROWSER_PROBE = False
+    return bool(_BROWSER_PROBE)
+
+
+def browser_hint():
+    """پیام صادقانه برای وقتی مرورگر headless در دسترس نیست."""
+    if HAS_PLAYWRIGHT and not browser_available():
+        return ("مرورگر headless در دسترس نیست — `python -m playwright install chromium` "
+                "را بزن یا Edge/Chrome نصب باشد")
+    return "مسدودسازی سایت (۴۰۳) یا محتوای JS که رندر نشده"
+
 
 def _pw_fetch(url, timeout_ms=25000):
     """دریافت HTML رندرشده با مرورگر headless — برای منابع needs_js و مسدودشده.
+
     نکته: page در بلوک finally بسته می‌شود تا در timeout نشت نکند (نشت صفحه
-    باعث قفل‌شدن sync_playwright و هنگ‌کردن بی‌نهایت کراولر می‌شود)."""
+    باعث قفل‌شدن sync_playwright و هنگ‌کردن بی‌نهایت کراولر می‌شود).
+    اگر به هر دلیلی (مثل اجرا در thread کارگر) نشد، None برمی‌گرداند و
+    فراخوان به HTTP ساده می‌افتد.
+    """
     global _PW, _BROWSER
     if not HAS_PLAYWRIGHT:
         return None
@@ -64,6 +122,7 @@ def _pw_fetch(url, timeout_ms=25000):
                 pass
     except Exception:
         return None
+
 
 def _close_browser():
     global _PW, _BROWSER
@@ -98,31 +157,86 @@ SOURCES_PATH = os.path.join(BASE, "sources.json")
 DISCOVERED_PATH = os.path.join(MEM, "discovered_sources.json")
 YIELD_HISTORY_PATH = os.path.join(MEM, "SOURCE_YIELD_HISTORY.json")
 
-# progress سراسری — web_ui.py روی همین لاگ می‌سازد
+# ══════════════════════════════════════════════════════════════════
+# progress سراسری — روی «تک‌تک آدرس‌ها» جلو می‌رود، نه هر سایت یک‌بار
+#
+# چرا روی URL و نه روی سایت؟ چون هر سایت چند آدرس دارد و هر آدرس
+# جداگانه یک صفحه‌ی سنگین باز می‌کند. اگر progress را فقط با «شمار
+# سایت‌های تمام‌شده» حساب کنیم، نوار یک‌هو از ۳٪ به ۹٪ می‌پرد و کاربر
+# فکر می‌کند هنگ کرده. با شمارش URLها نوار پیوسته و واقعی حرکت می‌کند.
+#
+# P کلیدهایی دارد که web_ui.py از روی لاگ پر می‌کند:
+#   url_done / url_total  → درصد واقعی
+#   sites_visited         → جدول زندهٔ هر آدرسی که باز شد
+# ══════════════════════════════════════════════════════════════════
 P = {
+    # شمارش روی URL
     "total": 0, "done": 0, "pct": 0,
+    # شمارس روی سایت (فقط برای برچسب «منبع ۳ از ۲۵»)
+    "site_total": 0, "site_done": 0,
     "current_source": "", "current_url": "", "current_keyword": "",
     "jobs_found_total": 0,
-    "sites_visited": [],  # [{name, url, jobs}] — به‌ترتیب
+    "sites_visited": [],  # [{name, url, keyword, jobs, ms, status}] — به‌ترتیب
 }
+
+# پروتکل لاگ — web_ui.py این قالب‌ها را با regex می‌خواند.
+# اگر این قالب‌ها را عوض کنی، همان regex ها را در web_ui هم عوض کن.
+# نکته: 🏁 برای «پایان کل منبع» جدا از ✅ («پایان یک آدرس») است — هر دو با
+# ✅ بودند و پنل زنده هر منبع را دوبار می‌شمرد.
+LG_SOURCE = "📡"   # شروع یک منبع
+LG_FETCH  = "🔎"   # شروع یک آدرس
+LG_DONE   = "✅"   # یک آدرس تمام شد
+LG_FAIL   = "⚠️"   # یک آدرس جواب نداد
+LG_SITE   = "🏁"   # پایان کامل یک منبع (تعداد تجمیعی)
+
+
+def emit(kind, payload):
+    """یک رویداد progress را چاپ می‌کند — تنها نقطهٔ خروج لاگ زنده."""
+    print(f"{kind} {payload}", flush=True)
+
 
 def progress_note(msg):
     print(f"    ⏳ {msg}", flush=True)
 
-def show_progress():
-    """نمایش progress bar واقعی — فقط بر اساس کارِ انجام‌شده"""
-    w = 30
-    filled = int(w * P["pct"] / 100) if P["pct"] else 0
-    bar = "█" * filled + "░" * (w - filled)
-    print(f"  [{bar}] {P['done']}/{P['total']} ({P['pct']}%)  🧲 {P['jobs_found_total']} آگهی", flush=True)
 
-def update_progress(site_done=False, jobs=0):
-    if site_done:
-        P["done"] += 1
+def show_progress():
+    """نوار progress واقعی — مخرجش تعداد کل آدرس‌هاست، نه تعداد سایت‌ها."""
+    w = 30
+    filled = int(w * P["pct"] / 100) if P["pct"] > 0 else 0
+    bar = "█" * filled + "░" * (w - filled)
+    print(f"  [{bar}] آدرس {P['done']}/{P['total']} ({P['pct']}%)"
+          f" · سایت {P['site_done']}/{P['site_total']}"
+          f" · 🧲 {P['jobs_found_total']} آگهی", flush=True)
+
+
+def update_progress(jobs=0):
+    """بعد از هر آدرسِ تمام‌شده صدا زده می‌شود."""
+    P["done"] += 1
     P["jobs_found_total"] += jobs
     if P["total"] > 0:
         P["pct"] = round(P["done"] * 100 / P["total"], 1)
     show_progress()
+
+
+def plan_progress(ordered):
+    """قبل از شروع، کل کار را می‌شمارد تا نوار از همان ابتدا مخرج درست دارد."""
+    P["site_total"] = len(ordered)
+    P["site_done"] = 0
+    P["total"] = sum(max(1, len(s.get("search_urls") or [s["url"]])) for s in ordered)
+    P["done"] = 0
+    P["pct"] = 0
+    P["jobs_found_total"] = 0
+    P["sites_visited"] = []
+
+
+def record_url(source_name, url, keyword, jobs, ms, status):
+    """یک ردیف برای جدول زندهٔ آدرس‌ها نگه می‌دارد."""
+    row = {
+        "name": source_name, "url": url, "keyword": keyword,
+        "jobs": jobs, "ms": ms, "status": status,
+    }
+    P["sites_visited"].append(row)
+    return row
 
 # ════════════════════════════════════════════════════
 # بانک منابع — مرجع واحد: sources.json (هیچ لیست هاردکد)
@@ -142,13 +256,20 @@ def validate_source(s, idx=0):
     s.setdefault("type", "job_board")
     s.setdefault("enabled", True)
     s.setdefault("trust", 60)
+    # مسیر: job (آگهی شغلی) یا education (برنامهٔ تحصیلی) — هیچ چیزی هاردکد نیست
+    track = str(s.get("track", "job")).strip().lower()
+    s["track"] = track if track in ("job", "education") else "job"
     urls = s.get("search_urls") or []
     s["search_urls"] = [u for u in urls if isinstance(u, str) and u.startswith("http")] or [url]
     return s
 
 
-def load_sources():
-    """منابع را از sources.json می‌خواند — مرجع واحد. هیچ لیست پیش‌فرض هاردکد."""
+def load_sources(track=None, country=None, include_disabled=False):
+    """منابع را از sources.json می‌خواند — مرجع واحد. هیچ لیست پیش‌فرض هاردکد.
+
+    track='job' فقط آگهی‌های شغلی، track='education' فقط برنامه‌های تحصیلی،
+    track=None یعنی هر دو با هم.
+    """
     if not os.path.exists(SOURCES_PATH):
         print(f"  ❌ sources.json پیدا نشد در {SOURCES_PATH}")
         print(f"     این فایل در ریپو هست — `git checkout sources.json` یا از web_ui تب تنظیمات اضافه کن.")
@@ -166,10 +287,29 @@ def load_sources():
                 invalid += 1
         if invalid:
             print(f"  ⚠️ {invalid} منبع نامعتبر در sources.json نادیده گرفته شد.")
+        if track:
+            valid = [s for s in valid if s["track"] == track]
+        if country:
+            cc = country.upper()
+            valid = [s for s in valid if s.get("country") == cc]
+        if not include_disabled:
+            valid = [s for s in valid if s.get("enabled", True)]
         return valid
     except (json.JSONDecodeError, OSError) as e:
         print(f"  ❌ sources.json قابل خواندن نیست: {e}")
         return []
+
+
+def source_bank_meta():
+    """فراداده‌های sources.json (tracks و countries) — برای نمایش در web_ui."""
+    try:
+        with open(SOURCES_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {"tracks": data.get("tracks", {}), "countries": data.get("countries", {})}
 
 
 def save_sources(sources):
@@ -768,44 +908,142 @@ def _guess_keyword(url):
         return "؟"
 
 
-def search_source(source, on_progress=None):
-    """جستجو در یک منبع. on_progress(url, keyword) قبل از هر fetch صدا زده می‌شود."""
-    all_jobs = []
-    urls = source.get("search_urls") or [source["url"]]
+def fetch_one(source, url, timeout=None):
+    """یک آدرس را می‌گیرد و HTML برمی‌گرداند — منابع JS-heavy مستقیم با مرورگر.
+
+    (نکته: برای منابع needs_js اول مرورگر امتحان می‌شود چون HTTP ساده
+    روی اکثر بوردهای بزرگ با 403 بلاک می‌شود و اتلاف وقت است. اگر مرورگر
+    هم جواب نداد، به HTTP ساده هم فرصت داده می‌شود.)
+    timeout اختیاری است — به ثانیه — و برای اسکریپت اعتبارسنجی لازم است.
+    """
+    secs = timeout if timeout else None
+    # مرورگر سراسری نیست: هر thread وضعیت خودش را دارد، پس اینجا فقط
+    # حاضر بودن پکیج را می‌پرسیم و اگر thread عوض شده باشد _pw_fetch خودش
+    # None می‌دهد و به plain برمی‌گردیم.
     needs_js = bool(source.get("needs_js"))
+    if needs_js and HAS_PLAYWRIGHT:
+        html = _pw_fetch(url, timeout_ms=(int(secs * 1000) if secs else 25000))
+        if html is None and secs:
+            html = _fetch_plain(url, timeout=secs)
+        elif html is None:
+            html = _fetch_plain(url)
+        return html
+    if secs:
+        return _fetch_plain(url, timeout=secs)
+    return fetch_page(url)
+
+
+def search_source(source, on_progress=None, on_url_done=None, extractor=None, kind="آگهی"):
+    """جستجو در یک منبع، آدرس‌به‌آدرس — و گزارش زندهٔ هر آدرس.
+
+    خروجی: (همهٔ آیتم‌ها، per_url) که per_url فهرستِ
+    [{url, keyword, jobs, ms, status}] برای جدول زنده و آمار بازده است.
+    on_progress(url, keyword, i, total) قبل از هر fetch،
+    on_url_done(per_url_row) بعد از هر fetch — روی همین‌ها نوار زنده حرکت می‌کند.
+    extractor پیش‌فرض استخراج آگهی؛ education_crawler استخراج برنامه می‌دهد.
+    """
+    extract = extractor or extract_jobs_from_html
+    all_items = []
+    per_url = []
+    urls = source.get("search_urls") or [source["url"]]
+    name = source["name"]
+    total = len(urls)
 
     for i, url in enumerate(urls, 1):
         keyword = _guess_keyword(url)
-        print(f"    🔎 [{i}/{len(urls)}] کلیدواژه: «{keyword}» ← {url}", flush=True)
         if on_progress:
-            on_progress(url, keyword)
+            on_progress(url, keyword, i, total)
+        emit(LG_FETCH, f"[{i}/{total}] کلیدواژه: «{keyword}» ← {url}")
 
-        if needs_js and HAS_PLAYWRIGHT:
-            # منابع JS-heavy مستقیم با مرورگر headless — HTTP ساده اتلاف وقت است
-            html = _pw_fetch(url)
-            if html is None:
-                html = _fetch_plain(url)
-        else:
-            html = fetch_page(url)
+        t0 = time.monotonic()
+        html = fetch_one(source, url)
+        ms = int((time.monotonic() - t0) * 1000)
 
         if html:
-            jobs = extract_jobs_from_html(html, source)
-            print(f"       → {len(jobs)} آگهی از این صفحه", flush=True)
-            all_jobs.extend(jobs)
-            time.sleep(0.5)
+            try:
+                items = extract(html, source)
+            except Exception as e:
+                print(f"       ⚠️ خطا در استخراج: {e}", flush=True)
+                items = []
+            all_items.extend(items)
+            row = {"url": url, "keyword": keyword, "jobs": len(items),
+                   "ms": ms, "status": "ok"}
+            per_url.append(row)
+            emit(LG_DONE, f"[{i}/{total}] {name} · «{keyword}» · {len(items)} {kind} · {ms}ms")
+            time.sleep(0.4)  # فاصلهٔ کوتاه تا سایت ما را ریت‌لیمیت نکند
         else:
-            hint = "نیاز به مرورگر headless (Playwright نصب نیست)" if needs_js else "مسدودسازی یا نیاز به JS"
-            print(f"       ⚠️ پاسخی دریافت نشد ({hint})", flush=True)
+            hint = browser_hint() if source.get("needs_js") else "مسدودسازی یا نیاز به JS"
+            row = {"url": url, "keyword": keyword, "jobs": 0, "ms": ms, "status": "blocked"}
+            per_url.append(row)
+            emit(LG_FAIL, f"[{i}/{total}] {name} · «{keyword}» · پاسخی نیامد ({hint}) · {ms}ms")
 
-    return all_jobs
+        if on_url_done:
+            on_url_done(row)
+
+    return all_items, per_url
 
 
 # ════════════════════════════════════════════════════
 # اجرا
 # ════════════════════════════════════════════════════
-def main():
+def dedupe(items, source_key="source"):
+    """حذف تکراری بر اساس URL (بدون session id و بدون query) یا عنوان+مصدر."""
+    seen_keys = set()
+    unique = []
+    for j in items:
+        url = _strip_session_ids((j.get("url") or "").split("?")[0])
+        key = url if url.startswith("http") else (
+            (j.get("title", "")[:50].lower(), j.get("company", "")[:30].lower(),
+             j.get(source_key, "").lower()))
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        unique.append(j)
+    return unique
+
+
+def build_excel(unique_items, applicants_config, filename, sheet_title, headers, widths, row_fn, hyperlink_col):
+    """ساخت فایل اکسل — مشترک بین مسیر کار و مسیر تحصیل."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_title
+    ws.sheet_view.rightToLeft = True
+
+    thin = Border(left=Side("thin"), right=Side("thin"), top=Side("thin"), bottom=Side("thin"))
+    header_font = Font(size=9, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1B4F72", end_color="1B4F72", fill_type="solid")
+    cell_font = Font(size=9)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    for i, h in enumerate(headers):
+        c = ws.cell(row=1, column=i + 1, value=h)
+        c.font, c.fill, c.alignment, c.border = header_font, header_fill, center, thin
+    for i, w in enumerate(widths):
+        ws.column_dimensions[get_column_letter_safe(i + 1)].width = w
+
+    row = 2
+    for n, item in enumerate(unique_items, 1):
+        for ci, val in enumerate(row_fn(n, item, applicants_config)):
+            c = ws.cell(row=row, column=ci + 1, value=val)
+            c.font, c.border = cell_font, thin
+            if ci == hyperlink_col and isinstance(val, str) and val.startswith("http"):
+                c.hyperlink = val
+        row += 1
+
+    ws.cell(row=row, column=1, value=len(unique_items))
+    ws.cell(row=row, column=2, value="جمع کل")
+    ws.auto_filter.ref = f"A1:{get_column_letter_safe(len(headers))}{row}"
+    return wb
+
+
+def main(track="job", country=None, discover=True, make_excel=True):
+    kind = "آگهی" if track == "job" else "برنامه"
+    label = "کاریابی" if track == "job" else "تحصیل"
     print("═" * 60)
-    print("MigrationHunter — جستجوی خودکار کاریابی")
+    print(f"MigrationHunter — جستجوی خودکار {label}" + (f" · کشور {country.upper()}" if country else ""))
     print(f"📅 {DATE_STR}")
     print("═" * 60)
 
@@ -813,110 +1051,156 @@ def main():
     applicants_config = get_applicants()
     print(f"  👥 {len(applicants_config)} متقاضی پیکربندی شده")
 
-    all_sources = load_sources()
+    all_sources = load_sources(track=track, country=country, include_disabled=True)
     if not all_sources:
-        print("\n  ❌ هیچ منبعی برای جستجو — خروج.")
+        print(f"\n  ❌ هیچ منبع «{label}» فعالی برای جستجو نیست — خروج.")
         return 0
-
     active_sources = [s for s in all_sources if s.get("enabled", True)]
     skipped = len(all_sources) - len(active_sources)
     print(f"\n🔍 {len(active_sources)} منبع فعال"
-          + (f" ({skipped} غیرفعال رد شد)" if skipped else ""))
+          + (f" ({skipped} غیرفعال رد شد)" if skipped else "")
+          + f" · {sum(len(s['search_urls']) for s in active_sources)} آدرس")
 
-    # ── گام صفر: اسکن منابع آگهی‌دار جدید — قبل از جستجوی اصلی ──
-    print("\n🛰  اسکن برای منابع آگهی‌دار جدید (discovered_sources)…")
-    try:
-        n_new = scan_for_new_sources(active_sources)
-        print(f"  {'✅' if n_new else 'ℹ️'} {n_new} دامنهٔ آگهی‌دار جدید کشف شد"
-              f"{' — در memory/discovered_sources.json ثبت شد' if n_new else ''}")
-    except Exception as e:
-        print(f"  ⚠️ اسکن منابع جدید با خطا مواجه شد: {e}")
+    # ── گام صفر: اسکن منابع آگهی‌دار جدید (فقط برای مسیر کار) ──
+    if discover and track == "job":
+        print("\n🛰  اسکن برای منابع آگهی‌دار جدید (discovered_sources)…")
+        try:
+            n_new = scan_for_new_sources(active_sources)
+            print(f"  {'✅' if n_new else 'ℹ️'} {n_new} دامنهٔ آگهی‌دار جدید کشف شد"
+                  f"{' — در memory/discovered_sources.json ثبت شد' if n_new else ''}")
+        except Exception as e:
+            print(f"  ⚠️ اسکن منابع جدید با خطا مواجه شد: {e}")
 
     # ── ترتیب: اول منابع آگهی‌دارِ اثبات‌شده (از اجرای قبل) ──
     ordered = get_priority_sources(active_sources)
-    proven_count = sum(1 for s in ordered if load_discovered().get(s["name"], {}).get("total_found", 0) > 0)
+    proven_count = sum(1 for s in ordered
+                       if load_discovered().get(s["name"], {}).get("total_found", 0) > 0)
     if proven_count:
         print(f"  ⭐ {proven_count} منبع آگهی‌دارِ اثبات‌شده از اجرای قبل اول جستجو می‌شوند")
 
-    P["total"] = len(ordered)
-    P["done"] = 0
-    P["pct"] = 0
+    plan_progress(ordered)
+    show_progress()
 
-    all_jobs = []
-    per_source_jobs = {}
+    extractor = extract_jobs_from_html if track == "job" else None
+    if extractor is None:
+        from education_crawler import extract_programs_from_html
+        extractor = extract_programs_from_html
+
+    all_items = []
+    per_source = {}
 
     for idx, source in enumerate(ordered, 1):
         name = source["name"]
         P["current_source"] = name
-        print(f"\n  📡 [{idx}/{len(ordered)}] {name} ({source.get('country','؟')}) — در حال بررسی…", flush=True)
-        show_progress()
+        emit(LG_SOURCE, f"[{idx}/{len(ordered)}] {name} ({source.get('country','؟')}) — در حال بررسی…")
 
-        jobs = search_source(source, on_progress=lambda u, k: P.update({"current_url": u, "current_keyword": k}))
-        all_jobs.extend(jobs)
-        per_source_jobs[name] = len(jobs)
-        update_progress(site_done=True, jobs=len(jobs))
-        status = "✅" if jobs else "⚠️"
-        print(f"    {status} مجموعاً {len(jobs)} آگهی یافت شد از {name}", flush=True)
-        time.sleep(0.3)
+        t0 = time.monotonic()
+        # on_url_done نوار را تک‌تک آدرس جلو می‌برد و جدول زنده را پر می‌کند
+        items, per_url = search_source(
+            source,
+            on_progress=lambda u, k, i, t: P.update({"current_url": u, "current_keyword": k}),
+            on_url_done=lambda row: (
+                record_url(name, row["url"], row["keyword"], row["jobs"], row["ms"], row["status"]),
+                update_progress(jobs=row["jobs"]),
+            ),
+            extractor=extractor,
+            kind=kind,
+        )
+        secs = round(time.monotonic() - t0, 1)
+        all_items.extend(items)
+        per_source[name] = len(items)
 
-    # حذف تکراری‌ها بر اساس URL (بدون session id) یا title+company
-    seen_keys = set()
-    unique_jobs = []
-    for j in all_jobs:
-        url = _strip_session_ids((j.get("url") or "").split("?")[0])
-        key = url if url.startswith("http") else (j.get("title", "")[:50].lower(), j.get("company", "")[:30].lower(), j.get("source", "").lower())
-        if key in seen_keys:
-            continue
-        seen_keys.add(key)
-        unique_jobs.append(j)
+        status = "✅" if items else "⚠️"
+        emit(LG_SITE, f"مجموعاً {len(items)} {kind} یافت شد از {name} · {secs}s")
+        P["site_done"] = idx
+        print(f"    {status} {name} → {len(items)} {kind} در {secs}s", flush=True)
+        time.sleep(0.2)
 
-    unique_jobs.sort(key=lambda j: detect_job_realness(j.get("title", ""), j.get("company", ""), applicants_config)["match_score"], reverse=True)
+    P["pct"] = 100.0
+    P["done"] = P["total"]
+    show_progress()
 
-    print(f"\n📊 ساخت Excel با {len(unique_jobs)} آگهی (قبل از حذف تکراری: {len(all_jobs)})…")
-    wb = build_jobs_excel(unique_jobs, applicants_config)
+    unique_items = dedupe(all_items)
+    unique_items.sort(key=lambda j: detect_job_realness(
+        j.get("title", ""), j.get("company", ""), applicants_config)["match_score"], reverse=True)
 
     os.makedirs(DASH, exist_ok=True)
-    fn = f"Job_Crawler_{FILE_DATE}.xlsx"
-    fp = os.path.join(DASH, fn)
-    wb.save(fp)
-
     os.makedirs(MEM, exist_ok=True)
-    with open(os.path.join(MEM, "CRAWLER_RESULTS.json"), "w", encoding="utf-8") as f:
+    fn = (f"Job_Crawler_{FILE_DATE}.xlsx" if track == "job"
+          else f"Education_Crawler_{FILE_DATE}.xlsx")
+    fp = os.path.join(DASH, fn)
+
+    if make_excel:
+        if track == "job":
+            wb = build_jobs_excel(unique_items, applicants_config)
+        else:
+            from education_crawler import build_programs_excel
+            wb = build_programs_excel(unique_items, applicants_config)
+        wb.save(fp)
+        print(f"\n📊 اکسل ساخته شد: {fn} ({len(unique_items)} ردیف)")
+
+    out_json = os.path.join(MEM, "CRAWLER_RESULTS.json" if track == "job"
+                            else "EDUCATION_RESULTS.json")
+    key = "jobs" if track == "job" else "programs"
+    with open(out_json, "w", encoding="utf-8") as f:
         json.dump({
-            "date": DATE_STR, "jobs": unique_jobs, "found": len(unique_jobs),
+            "date": DATE_STR, "track": track, "country": country or "همه",
+            key: unique_items, "found": len(unique_items),
             "scanned_sources": len(ordered),
-            "per_source": per_source_jobs,
+            "scanned_urls": P["total"],
+            "per_source": per_source,
+            "sites_visited": P["sites_visited"],
         }, f, ensure_ascii=False, indent=2)
 
-    # ── بروزرسانی بانک منابع آگهی‌دار برای اجرای بعدی ──
-    bank = record_discovered_sources(all_sources, active_sources, per_source_jobs)
-    n_proven = sum(1 for v in bank.values() if v.get("total_found", 0) > 0)
-    print(f"\n🏦 بانک منابع آگهی‌دار بروزرسانی شد — {n_proven} منبع با آگهی واقعی ثبت شده")
-
-    # ── تاریخچهٔ بازده برای تب «📈 بازده منابع» ──
-    record_yield_history(per_source_jobs)
+    if track == "job":
+        bank = record_discovered_sources(all_sources, active_sources, per_source)
+        n_proven = sum(1 for v in bank.values() if v.get("total_found", 0) > 0)
+        print(f"\n🏦 بانک منابع آگهی‌دار بروزرسانی شد — {n_proven} منبع با آگهی واقعی ثبت شده")
+        record_yield_history(per_source)
     _close_browser()
 
-    # خلاصه
-    print(f"\n  📊 خلاصه")
-    print(f"  ├─ مجموع آگهی‌ها (قبل از dedup): {len(all_jobs)}")
-    print(f"  ├─ یکتا: {len(unique_jobs)}")
+    # ── خلاصهٔ نهایی ──
+    print(f"\n  📊 خلاصه {label}")
+    print(f"  ├─ سایت‌های چک‌شده: {len(ordered)} · آدرس‌ها: {P['total']}")
+    print(f"  ├─ مجموع {kind}ها (قبل از dedup): {len(all_items)}")
+    print(f"  ├─ یکتا: {len(unique_items)}")
     countries = {}
-    for j in unique_jobs:
+    for j in unique_items:
         c = j.get("country", "؟")
         countries[c] = countries.get(c, 0) + 1
-    print(f"  ├─ آمار کشورها:")
-    for c, cnt in sorted(countries.items(), key=lambda x: -x[1])[:10]:
-        print(f"  │  {c}: {cnt} آگهی")
-    companies_found = [j.get("company", "") for j in unique_jobs if j.get("company") and j["company"] != "نامشخص"]
-    if companies_found:
-        from collections import Counter
-        top = Counter(companies_found).most_common(5)
-        print(f"  ├─ شرکت‌های پرتکرار: {', '.join(f'{c} ({n})' for c, n in top)}")
-    print(f"  └─ ذخیره شده: {fn}")
+    if countries:
+        print(f"  ├─ آمار کشورها:")
+        for c, cnt in sorted(countries.items(), key=lambda x: -x[1])[:12]:
+            print(f"  │  {c}: {cnt}")
+    blocked = sum(1 for r in P["sites_visited"] if r.get("status") == "blocked")
+    if blocked:
+        print(f"  └─ ⚠️ {blocked} آدرس پاسخی نداد (۴۰۳ یا نیاز به مرورگر — `playwright install` را بزن)")
+    print(f"  └─ ذخیره شد: {fn if make_excel else out_json}")
     print("═" * 60)
-    return len(unique_jobs)
+    return len(unique_items)
+
+
+def cli():
+    """نقطهٔ ورود خط فرمان — انتخاب مسیر کار یا تحصیل و کشور."""
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="MigrationHunter — کراولر آگهی شغلی و برنامهٔ تحصیلی",
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="مثال‌ها:\n"
+               "  python job_crawler.py                      # همهٔ آگهی‌های شغلی\n"
+               "  python job_crawler.py --track education    # فقط برنامه‌های تحصیلی\n"
+               "  python job_crawler.py --country FI         # فقط فنلاند\n"
+               "  python job_crawler.py --country FI --track job --no-discover\n")
+    ap.add_argument("--track", choices=["job", "education"], default="job",
+                    help="مسیر: کاریابی یا تحصیل (پیش‌فرض job)")
+    ap.add_argument("--country", help="فقط یک کشور، مثلاً FI یا DE")
+    ap.add_argument("--no-discover", action="store_true",
+                    help="اسکن خودکار دامنه‌های آگهی‌دار جدید را رد کن (سریع‌تر)")
+    ap.add_argument("--no-excel", action="store_true", help="فایل اکسل نساز")
+    args = ap.parse_args()
+    return main(track=args.track, country=args.country,
+                discover=not args.no_discover, make_excel=not args.no_excel)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(cli() or 0)
