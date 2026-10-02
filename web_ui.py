@@ -1236,7 +1236,8 @@ def _li_read_json(path, default):
         return default
 
 
-def run_linkedin_background(action, keywords="", location="", applicant="", url=""):
+def run_linkedin_background(action, keywords="", location="", applicant="", url="",
+                            mode="auto"):
     """یک عملیات linkedin_live.py را در پس‌زمینه اجرا می‌کند و خروجی‌اش را استریم می‌کند."""
     with LI_LOCK:
         if linkedin_state["running"]:
@@ -1257,7 +1258,7 @@ def run_linkedin_background(action, keywords="", location="", applicant="", url=
             with LI_LOCK:
                 linkedin_state["running"] = False
             return
-        cmd = [sys.executable, "-u", script, action]
+        cmd = [sys.executable, "-u", script, action, "--mode", mode]
         if keywords:
             cmd += ["--keywords", keywords]
         if location:
@@ -1294,7 +1295,8 @@ def run_linkedin_background(action, keywords="", location="", applicant="", url=
 def render_linkedin(track=None, message=None):
     """تب LinkedIn — ورود زنده، ریکروتریابی و ذخیرهٔ شغل."""
     from linkedin_live import (DB_PATH, JOBS_PATH, PROFILE_OUT,
-                               find_driver_path, get_credentials, read_log)
+                               debug_port_open, find_driver_path,
+                               get_credentials, read_log)
 
     t = track_of(track)
     email, password = get_credentials()
@@ -1315,8 +1317,11 @@ def render_linkedin(track=None, message=None):
     email_mask = ""
     if email:
         local, _, dom = email.partition("@")
-        email_mask = (local[:3] + "…" + (("@@" + dom) if dom else "")) if len(local) > 3 else email
+        email_mask = (local[:3] + "…" + (("@" + dom) if dom else "")) if len(local) > 3 else email
     running = linkedin_state["running"]
+    dbg_open = debug_port_open()
+    dbg_badge = ('<span class="badge ok">باز است ✓</span>' if dbg_open
+                 else '<span class="badge err">بسته است ✗</span>')
 
     log_text = "\n".join(linkedin_state["log"]) or read_log(200) or \
         "هنوز عملیاتی اجرا نشده است."
@@ -1430,6 +1435,13 @@ def render_linkedin(track=None, message=None):
           {"".join(f'<option value="{html.escape(a.get("id",""))}">{html.escape(a.get("name_fa") or a.get("name", a.get("id","")))}</option>' for a in load_applicants())}
         </select>
       </label>
+      <label>حالت مرورگر
+        <select name="mode">
+          <option value="auto">⚡ خودکار (اول اتصال، اگر نبود تازه)</option>
+          <option value="attach">🔗 فقط اتصال به مرورگر خودم (اکانت گوگلی)</option>
+          <option value="launch">🆕 همیشه مرورگر تازه (با رمز)</option>
+        </select>
+      </label>
       <label class="full">کلیدواژه
         <input name="keywords" value="recruiter HR talent acquisition" placeholder="recruiter HR, یا software engineer">
       </label>
@@ -1451,6 +1463,24 @@ def render_linkedin(track=None, message=None):
       <div class="full"><button class="btn" style="background:var(--amber)" type="submit"
         {'disabled' if running else ''}>⭐ ذخیرهٔ شغل</button></div>
     </form>
+  </section>
+
+  <section>
+    <h2>🔗 اتصال به مرورگر خودم <span class="hint">(برای اکانت‌هایی که با «ورود با گوگل» ساخته شده‌اند و رمزی ندارند)</span></h2>
+    <div class="kpi">
+      <div class="st"><b>{'✓' if dbg_open else '✗'}</b><span>پورت دیباگ 9222 {dbg_badge}</span></div>
+      <div class="st"><b>{'✓' if (email and password) else '✗'}</b><span>ورود با رمز {cred_badge}</span></div>
+    </div>
+    <dl class="deflist">
+      <dt>۱ · کروم را کاملاً ببند</dt>
+      <dd>همهٔ پنجره‌ها و آیکون کنار ساعت باید بسته شود؛ وگرنه پرچم دیباگ اعمال نمی‌شود.</dd>
+      <dt>۲ · این دستور را در PowerShell اجرا کن</dt>
+      <dd><code dir="ltr" style="direction:ltr;unicode-bidi:isolate">&amp; "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222</code></dd>
+      <dt>۳ · وارد لینکدین شو</dt>
+      <dd>با گوگل یا با رمز — فرقی ندارد؛ نشستت در همان مرورگر می‌ماند.</dd>
+      <dt>۴ · در فرم بالا «حالت مرورگر» را روی «🔗 فقط اتصال» بگذار و اجرا بزن</dt>
+      <dd>اسکریپت در یک تب تازه کار می‌کند؛ تب‌های خودت دست نمی‌خورد و بعد از اتمام، مرورگرت بسته نمی‌شود.</dd>
+    </dl>
   </section>
 
   <section>
@@ -3074,11 +3104,15 @@ class Handler(BaseHTTPRequestHandler):
             action = f.get("action", "profile").strip()
             if action not in ("profile", "login", "recruiters", "jobs", "scan"):
                 action = "profile"
+            mode = f.get("mode", "auto").strip()
+            if mode not in ("auto", "launch", "attach"):
+                mode = "auto"
             started = run_linkedin_background(
                 action,
                 keywords=f.get("keywords", "").strip(),
                 location=f.get("location", "").strip(),
                 applicant=f.get("applicant", "").strip(),
+                mode=mode,
             )
             if not started:
                 self._redirect("/linkedin?msg=" + urllib.parse.quote(
