@@ -1237,7 +1237,7 @@ def _li_read_json(path, default):
 
 
 def run_linkedin_background(action, keywords="", location="", applicant="", url="",
-                            mode="auto"):
+                            mode="auto", urls="", with_posts=False, dry_run=False):
     """یک عملیات linkedin_live.py را در پس‌زمینه اجرا می‌کند و خروجی‌اش را استریم می‌کند."""
     with LI_LOCK:
         if linkedin_state["running"]:
@@ -1259,6 +1259,12 @@ def run_linkedin_background(action, keywords="", location="", applicant="", url=
                 linkedin_state["running"] = False
             return
         cmd = [sys.executable, "-u", script, action, "--mode", mode]
+        if dry_run:
+            cmd += ["--dry-run"]
+        if with_posts:
+            cmd += ["--with-posts"]
+        if urls:
+            cmd += ["--urls", urls]
         if keywords:
             cmd += ["--keywords", keywords]
         if location:
@@ -1294,9 +1300,9 @@ def run_linkedin_background(action, keywords="", location="", applicant="", url=
 
 def render_linkedin(track=None, message=None):
     """تب LinkedIn — ورود زنده، ریکروتریابی و ذخیرهٔ شغل."""
-    from linkedin_live import (DB_PATH, JOBS_PATH, PROFILE_OUT,
+    from linkedin_live import (ALERTS_PATH, DB_PATH, JOBS_PATH, PROFILE_OUT,
                                debug_port_open, find_driver_path,
-                               get_credentials, read_log)
+                               get_credentials, load_alerts, read_log)
 
     t = track_of(track)
     email, password = get_credentials()
@@ -1368,6 +1374,48 @@ def render_linkedin(track=None, message=None):
         </div>"""
     else:
         prof_html = '<p class="empty">پروفایلی هنوز استخراج نشده — «ورود و استخراج پروفایل» را بزن.</p>'
+
+    mode_opts = """
+        <option value="auto">⚡ خودکار (اول اتصال، اگر نبود تازه)</option>
+        <option value="attach">🔗 فقط اتصال به مرورگر خودم</option>
+        <option value="launch">🆕 همیشه مرورگر تازه</option>"""
+
+    followed_n = sum(1 for r in recruiters if r.get("followed"))
+
+    def follow_row(r):
+        u = r.get("url", "")
+        followed = r.get("followed")
+        st = ('<span class="badge ok">فالو شده ✓</span>' if followed
+              else '<span class="badge" style="background:#e8eef4;color:#3a5a7a">فالو نشده</span>')
+        chk = ("" if followed
+               else f'<input type="checkbox" class="fchk" value="{html.escape(u)}">')
+        return (f"<tr><td>{chk}</td>"
+                f"<td><b>{html.escape(r.get('name','—'))}</b>"
+                f"<div class='hint'>{html.escape(r.get('headline',''))}</div></td>"
+                f"<td>{st}</td>"
+                f"<td class='url'><a href='{html.escape(u)}' "
+                f"target='_blank' rel='noopener'>پروفایل ↗</a></td></tr>")
+
+    follow_html = (
+        "<div class='scroll-y' style='max-height:320px'>"
+        "<table class='files'><thead><tr><th></th><th>نام و سمت</th>"
+        "<th>وضعیت</th><th>لینک</th></tr></thead><tbody>"
+        + "".join(follow_row(r) for r in recruiters) + "</tbody></table></div>"
+        if recruiters else
+        '<p class="empty">هنوز ریکروتری ذخیره نشده — اول از فرم «ریکروتریابی» جستجو بزن.</p>')
+
+    alerts = load_alerts()
+
+    def alert_row(a):
+        return (f"<tr><td><b>{html.escape(a.get('keywords','—'))}</b></td>"
+                f"<td><span class='kbd'>{html.escape(a.get('location','—'))}</span></td>"
+                f"<td class='hint'>{html.escape(a.get('created_at',''))}</td></tr>")
+
+    alerts_html = (
+        "<table class='files'><thead><tr><th>کلیدواژه</th><th>موقعیت</th>"
+        "<th>ساخته‌شده</th></tr></thead><tbody>"
+        + "".join(alert_row(a) for a in alerts) + "</tbody></table>"
+        if alerts else '<p class="empty">هنوز هشداری ساخته نشده است.</p>')
 
     return f"""<!doctype html>
 <html lang="fa"><head>
@@ -1501,12 +1549,64 @@ def render_linkedin(track=None, message=None):
   </section>
 
   <section>
+    <h2>➕ فالوی ریکروترها <span class="hint">{followed_n} از {len(recruiters)} فالو شده‌اند</span></h2>
+    <p class="hint">تیک بزن و «فالو» را بزن — اسکریپت دکمهٔ Follow را در لینکدین می‌زند؛
+    اگر «جمع‌آوری آگهی‌ها» هم تیک باشد، پست‌های اخیرشان خوانده و آگهی‌هایشان ذخیره می‌شود.
+    ریکروترهای فالوشده دیگر تیک ندارند.</p>
+    <form method="post" action="/linkedin/follow" onsubmit="return liCollect(this)">
+      {follow_html}
+      <input type="hidden" name="urls" value="">
+      <div class="filters" style="margin-top:12px">
+        <label class="hint"><input type="checkbox" name="with_posts" value="1" checked>
+          آگهی‌هایشان را هم جمع کن</label>
+        <label class="hint"><input type="checkbox" name="dry" value="1">
+          فقط بررسی (بدون کلیک واقعی)</label>
+        <label class="hint">حالت مرورگر
+          <select name="mode">{mode_opts}</select></label>
+      </div>
+      <p style="margin-top:12px">
+        <button class="btn" type="submit" {'disabled' if running else ''}>
+          {'⏳ در حال اجرا…' if running else '➕ فالوی انتخاب‌شده‌ها'}</button>
+        <button class="btn" type="button" style="background:var(--amber); margin-right:8px"
+          onclick="liCheckAll(true)">همه</button>
+        <button class="btn" type="button" style="background:#8a938f; margin-right:8px"
+          onclick="liCheckAll(false)">هیچ‌کدام</button>
+      </p>
+    </form>
+  </section>
+
+  <section>
     <h2>⭐ آگهی‌های ذخیره‌شده</h2>
     {job_html}
+  </section>
+
+  <section>
+    <h2>🔔 هشدار شغلی (Job Alert) <span class="hint">{len(alerts)} فعال</span></h2>
+    <p class="hint">هشدار در خود لینکدین ساخته می‌شود (سوییچ زنگ در صفحهٔ جستجوی شغل)؛
+    بعدش لینکدین خودش آگهی‌های مشابه را ایمیل/نوتیف می‌کند.</p>
+    {alerts_html}
+    <form class="inline" method="post" action="/linkedin/alert" style="margin-top:14px">
+      <label>کلیدواژه<input name="keywords" placeholder="software engineer" required></label>
+      <label>موقعیت<input name="location" value="Germany"></label>
+      <label>حالت مرورگر<select name="mode">{mode_opts}</select></label>
+      <label class="hint" style="align-self:end">
+        <input type="checkbox" name="dry" value="1"> فقط بررسی (بدون کلیک واقعی)</label>
+      <div class="full"><button class="btn" type="submit"
+        {'disabled' if running else ''}>🔔 ساخت هشدار شغلی</button></div>
+    </form>
   </section>
 </main>
 
 <script>
+function liCheckAll(on){{
+  document.querySelectorAll('.fchk').forEach(c => {{ c.checked = on; }});
+}}
+function liCollect(f){{
+  const v = Array.from(f.querySelectorAll('.fchk:checked')).map(c => c.value);
+  f.querySelector('input[name="urls"]').value = v.join('\n');
+  if (!v.length) {{ alert('اول حداقل یک ریکروتر را تیک بزن.'); return false; }}
+  return true;
+}}
 let liPoll = null;
 function liFetch(){{
   fetch('/linkedin/status').then(r => r.json()).then(s => {{
@@ -3130,6 +3230,42 @@ class Handler(BaseHTTPRequestHandler):
             started = run_linkedin_background("save", url=url)
             self._redirect("/linkedin?msg=" + urllib.parse.quote(
                 "در حال ذخیرهٔ آگهی…" if started else "یک عملیات دیگر در حال اجراست."))
+
+        elif raw_path == "/linkedin/follow":
+            f = self._read_form()
+            urls = [u.strip() for u in f.get("urls", "").replace(",", "\n").splitlines()
+                    if u.strip().startswith("http")]
+            mode = f.get("mode", "auto").strip()
+            if mode not in ("auto", "launch", "attach"):
+                mode = "auto"
+            if not urls:
+                self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                    "اول حداقل یک ریکروتر را تیک بزن."))
+                return
+            started = run_linkedin_background(
+                "follow", urls="\n".join(urls),
+                with_posts=bool(f.get("with_posts")), dry_run=bool(f.get("dry")),
+                mode=mode)
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                f"فالوی {len(urls)} نفر شروع شد — لاگ را پایین ببین."
+                if started else "یک عملیات دیگر در حال اجراست."))
+
+        elif raw_path == "/linkedin/alert":
+            f = self._read_form()
+            kw = f.get("keywords", "").strip()
+            loc = f.get("location", "").strip() or "Germany"
+            mode = f.get("mode", "auto").strip()
+            if mode not in ("auto", "launch", "attach"):
+                mode = "auto"
+            if not kw:
+                self._redirect("/linkedin?msg=" + urllib.parse.quote("کلیدواژه خالی است."))
+                return
+            started = run_linkedin_background(
+                "alert", keywords=kw, location=loc,
+                dry_run=bool(f.get("dry")), mode=mode)
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                "ساخت هشدار شروع شد — لاگ را پایین ببین."
+                if started else "یک عملیات دیگر در حال اجراست."))
 
         elif raw_path == "/education/app-add":
             if not HAS_EDU_CRAWLER:

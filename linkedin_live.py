@@ -921,17 +921,231 @@ def save_job_list(jobs: list) -> list:
 
 
 # --------------------------------------------------------------------------- #
+# فالو + هشدار شغلی + اسکن پست‌های ریکروتر
+# --------------------------------------------------------------------------- #
+ALERTS_PATH = MEM / "LINKEDIN_ALERTS.json"
+
+
+def load_alerts() -> list:
+    try:
+        d = json.loads(ALERTS_PATH.read_text(encoding="utf-8"))
+        return d if isinstance(d, list) else d.get("alerts", [])
+    except Exception:
+        return []
+
+
+def _save_alerts(alerts: list) -> None:
+    MEM.mkdir(exist_ok=True)
+    ALERTS_PATH.write_text(json.dumps(alerts, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def follow_person(driver, profile_url: str, dry_run: bool = False) -> str:
+    """دکمهٔ Follow پروفایل را می‌زند (بدون نیاز به رمز در حالت اتصال).
+
+    برمی‌گرداند: 'followed' | 'already' | 'notfound'.
+    در حالت dry_run فقط تشخیص می‌دهد و کلیک نمی‌کند ('would-follow').
+    به کلاس تکیه نمی‌کند: aria-label و متن دکمه.
+    """
+    from selenium.webdriver.common.by import By
+
+    driver.get(profile_url)
+    time.sleep(4)
+
+    already, target = False, None
+    try:
+        buttons = driver.find_elements(By.CSS_SELECTOR, "main button, div button")
+    except Exception:
+        buttons = []
+    for b in buttons:
+        try:
+            lab = (b.get_attribute("aria-label") or "").strip()
+            txt = (b.text or "").strip()
+        except Exception:
+            continue
+        low_lab, low_txt = lab.lower(), txt.lower()
+        if low_lab.startswith("following") or low_lab.startswith("unfollow") \
+                or low_txt in ("following",):
+            already = True
+            break
+        if low_lab.startswith("follow") or low_txt in ("follow", "+ follow"):
+            target = b
+    if not already and target is None:
+        try:
+            xp = ("//button[normalize-space()='Follow' or normalize-space()='+ Follow' "
+                  "or starts-with(normalize-space(),'Follow ')]")
+            found = driver.find_elements(By.XPATH, xp)
+            target = found[0] if found else None
+        except Exception:
+            target = None
+    if already:
+        return "already"
+    if target is None:
+        return "notfound"
+    if dry_run:
+        return "would-follow"
+    try:
+        driver.execute_script("arguments[0].click();", target)
+        time.sleep(2)
+        return "followed"
+    except Exception as e:
+        log(f"   ⚠️ کلیک Follow نشد: {e}")
+        return "notfound"
+
+
+def record_follow(profile_url: str, name: str = "", status: str = "") -> None:
+    """نتیجهٔ فالو را در LINKEDIN_DB ثبت می‌کند."""
+    db = load_db()
+    bucket = db.setdefault("_recruiters", {})
+    cur = bucket.get(profile_url, {})
+    entry = {**cur, "url": profile_url,
+             "followed": status in ("followed", "already"),
+             "follow_status": status,
+             "followed_at": f"{_dt.datetime.now():%Y-%m-%d %H:%M}"}
+    if name and not cur.get("name"):
+        entry["name"] = name
+    bucket[profile_url] = entry
+    MEM.mkdir(exist_ok=True)
+    DB_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def scan_recruiter_posts(driver, profile_url: str, max_jobs: int = 10) -> list:
+    """پست‌های اخیر ریکروتر را می‌خواند و لینک‌های آگهی (/jobs/view/) را برمی‌دارد.
+
+    فقط‌خواندنی است (هیچ کلیکی ندارد). عنوان = متن لینک اگر معنادار باشد.
+    """
+    from selenium.webdriver.common.by import By
+
+    base = profile_url.rstrip("/").split("?")[0]
+    url = base + "/recent-activity/all/"
+    log(f"   📰 اسکن پست‌های: {base.rsplit('/', 1)[-1]}")
+    driver.get(url)
+    time.sleep(5)
+    # چند اسکرول برای پست‌های بیشتر
+    for _ in range(3):
+        try:
+            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        except Exception:
+            break
+        time.sleep(2)
+
+    try:
+        links = driver.find_elements(By.CSS_SELECTOR, "a[href*='/jobs/view/']")
+    except Exception:
+        links = []
+    jobs, seen = [], set()
+    for a in links:
+        if len(jobs) >= max_jobs:
+            break
+        try:
+            href = (a.get_attribute("href") or "").split("?")[0]
+            atext = " ".join((a.text or "").split())
+        except Exception:
+            continue
+        slug = href.rstrip("/").rsplit("/", 1)[-1]
+        if not href or "/jobs/view/" not in href or not slug.isdigit() or href in seen:
+            continue
+        seen.add(href)
+        title = atext[:160] if atext and 4 < len(atext) < 160 else "(از پست لینکدین)"
+        jobs.append({
+            "title": title, "company": "—", "url": href,
+            "source": "linkedin-post", "via": base,
+            "saved_at": f"{_dt.datetime.now():%Y-%m-%d %H:%M}",
+        })
+    if jobs:
+        log(f"   🎯 {len(jobs)} آگهی از پست‌ها پیدا شد.")
+    return jobs
+
+
+def set_job_alert(driver, keywords: str, location: str = "Germany",
+                  dry_run: bool = False) -> str:
+    """هشدار شغلی لینکدین («Set alert») را برای کلیدواژه/موقعیت روشن می‌کند.
+
+    برمی‌گرداند: 'created' | 'already' | 'notfound'.
+    در حالت dry_run فقط سوییچ را پیدا می‌کند ('would-create').
+    """
+    from selenium.webdriver.common.by import By
+
+    kw, loc = quote_plus(keywords), quote_plus(location)
+    url = (f"https://www.linkedin.com/jobs/search/?keywords={kw}&location={loc}")
+    log(f"🔔 هشدار شغلی: «{keywords}» در {location}")
+    driver.get(url)
+    time.sleep(5)
+
+    target, state = None, ""
+    try:
+        xp = ("//button[contains(translate(@aria-label,"
+              "'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'),'alert')]")
+        cands = driver.find_elements(By.XPATH, xp)
+        if cands:
+            target = cands[0]
+            state = (target.get_attribute("aria-label") or "") + " " + (target.text or "")
+    except Exception:
+        pass
+    if target is None:
+        try:
+            for b in driver.find_elements(By.CSS_SELECTOR, "main button"):
+                t = ((b.get_attribute("aria-label") or "") + " " + (b.text or "")).lower()
+                if "alert" in t or "هشدار" in t:
+                    target, state = b, t
+                    break
+        except Exception:
+            pass
+    if target is None:
+        log("   ⚠️ سوییچ هشدار پیدا نشد.")
+        return "notfound"
+
+    low = state.lower()
+    if any(k in low for k in ("alert on", "alerts on", "on,", "activated", "روشن")) \
+            and "off" not in low and "set alert" not in low and "create" not in low:
+        log("   ℹ️ هشدار از قبل روشن است.")
+        return "already"
+    try:
+        pressed = (target.get_attribute("aria-pressed") or "").lower() == "true"
+    except Exception:
+        pressed = False
+    if pressed:
+        log("   ℹ️ هشدار از قبل روشن است.")
+        return "already"
+    if dry_run:
+        log(f"   ✅ سوییچ پیدا شد («{(state or '')[:60]}») — در حالت واقعی روشن می‌شود.")
+        return "would-create"
+    try:
+        driver.execute_script("arguments[0].click();", target)
+        time.sleep(2.5)
+        alerts = load_alerts()
+        if not any(a.get("keywords") == keywords and a.get("location") == location
+                   for a in alerts):
+            alerts.append({"keywords": keywords, "location": location,
+                           "url": url, "active": True,
+                           "created_at": f"{_dt.datetime.now():%Y-%m-%d %H:%M}"})
+            _save_alerts(alerts)
+        log("   🔔 هشدار روشن شد.")
+        return "created"
+    except Exception as e:
+        log(f"   ⚠️ روشن کردن هشدار نشد: {e}")
+        return "notfound"
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="LinkedIn Live — بدون webdriver_manager")
     ap.add_argument("action", choices=[
-        "profile", "login", "recruiters", "jobs", "save", "scan", "log"],
+        "profile", "login", "recruiters", "jobs", "save", "scan", "follow",
+        "alert", "log"],
         help="profile=لاگین+استخراج پروفایل · recruiters=ریکروتریابی · "
-             "jobs=جستجوی شغل · save=ذخیرهٔ یک آدرس · scan=jobs+recruiters · log=نمایش لاگ")
+             "jobs=جستجوی شغل · save=ذخیرهٔ یک آدرس · scan=jobs+recruiters · "
+             "follow=فالوی پروفایل‌ها · alert=هشدار شغلی · log=نمایش لاگ")
     ap.add_argument("--keywords", default="recruiter HR talent acquisition")
     ap.add_argument("--location", default="Germany")
     ap.add_argument("--url", default="", help="آدرس آگهی برای save")
+    ap.add_argument("--urls", default="",
+                    help="چند آدرس پروفایل برای follow (با ویرگول یا خط جدید جدا کن)")
+    ap.add_argument("--with-posts", action="store_true",
+                    help="با follow: آگهی‌های پست‌هایشان را هم جمع کن")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="فقط بررسی؛ هیچ کلیکی انجام نمی‌شود")
     ap.add_argument("--applicant", default="", help="شناسهٔ متقاضی برای ذخیره در LINKEDIN_DB")
     ap.add_argument("--limit", type=int, default=25)
     ap.add_argument("--headless", action="store_true")
@@ -996,6 +1210,44 @@ def main(argv=None) -> int:
                 print("--url لازم است")
                 return 1
             rc = 0 if save_job(driver, args.url) else 3
+
+        if args.action == "follow":
+            if not logged:
+                log("❌ فالو بدون لاگین ممکن نیست.")
+                return 2
+            urls = [u.strip() for u in args.urls.replace(",", "\n").splitlines()
+                    if u.strip().startswith("http")]
+            if not urls:
+                print("--urls لازم است (آدرس پروفایل‌ها)")
+                return 1
+            ok = 0
+            for u in urls:
+                st = follow_person(driver, u, dry_run=args.dry_run)
+                log(f"   {'✅' if st in ('followed', 'already', 'would-follow') else '⚠️'} "
+                    f"{u.rsplit('/', 2)[-2] if '/in/' in u else u} → {st}")
+                if st in ("followed", "already"):
+                    db0 = load_db()
+                    nm = (db0.get("_recruiters", {}).get(u, {}).get("name", ""))
+                    record_follow(u, nm, st)
+                    ok += 1
+                if st == "would-follow":
+                    ok += 1
+                if args.with_posts and st in ("followed", "already", "would-follow") \
+                        and not args.dry_run:
+                    pj = scan_recruiter_posts(driver, u)
+                    if pj:
+                        save_job_list(pj)
+            log(f"✅ فالو: {ok} از {len(urls)}"
+                + (" (فقط بررسی)" if args.dry_run else ""))
+            rc = 0 if ok else 3
+
+        if args.action == "alert":
+            if not logged:
+                log("❌ هشدار بدون لاگین ممکن نیست.")
+                return 2
+            st = set_job_alert(driver, args.keywords, args.location,
+                               dry_run=args.dry_run)
+            rc = 0 if st in ("created", "already", "would-create") else 3
 
     except Exception as e:
         log(f"❌ خطا: {type(e).__name__}: {e}")
