@@ -1444,7 +1444,8 @@ def render_linkedin(track=None, message=None):
     </div>
     <p class="hint">
       درایور از <code>chromedriver-py</code> محلی خوانده می‌شود و هیچ دانلودی از گوگل انجام نمی‌شود.
-      اعتبارنامه فقط از <code>.env</code> خوانده می‌شود و فقط همین‌جا ذخیره می‌شود.
+      اعتبارنامه فقط از <code>.env</code> خوانده می‌شود (<span class="kbd">LINKEDIN_EMAIL</span>
+      و <span class="kbd">LINKEDIN_PASSWORD</span>) و فقط از همین صفحه ذخیره می‌شود.
       {'<b style="color:var(--err)">⚠️ رمز لینکدین ثبت نشده یا خالی است — فرم پایین را پر کن.</b>' if not (email and password) else ''}
     </p>
 
@@ -1514,21 +1515,28 @@ def render_linkedin(track=None, message=None):
   </section>
 
   <section>
-    <h2>🔗 اتصال به مرورگر خودم <span class="hint">(برای اکانت‌هایی که با «ورود با گوگل» ساخته شده‌اند و رمزی ندارند)</span></h2>
+    <h2>🔗 مرورگر لینکدین <span class="hint">(برای اکانت‌هایی که با «ورود با گوگل» ساخته شده‌اند و رمزی ندارند)</span></h2>
     <div class="kpi">
-      <div class="st"><b>{'✓' if dbg_open else '✗'}</b><span>پورت دیباگ 9222 {dbg_badge}</span></div>
+      <div class="st"><b>{'✓' if dbg_open else '✗'}</b><span>مرورگر لینکدین {dbg_badge}</span></div>
       <div class="st"><b>{'✓' if (email and password) else '✗'}</b><span>ورود با رمز {cred_badge}</span></div>
     </div>
-    <dl class="deflist">
-      <dt>۱ · کروم را کاملاً ببند</dt>
-      <dd>همهٔ پنجره‌ها و آیکون کنار ساعت باید بسته شود؛ وگرنه پرچم دیباگ اعمال نمی‌شود.</dd>
-      <dt>۲ · این دستور را در PowerShell اجرا کن</dt>
-      <dd><code dir="ltr" style="direction:ltr;unicode-bidi:isolate">&amp; "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222</code></dd>
-      <dt>۳ · وارد لینکدین شو</dt>
-      <dd>با گوگل یا با رمز — فرقی ندارد؛ نشستت در همان مرورگر می‌ماند.</dd>
-      <dt>۴ · در فرم بالا «حالت مرورگر» را روی «🔗 فقط اتصال» بگذار و اجرا بزن</dt>
-      <dd>اسکریپت در یک تب تازه کار می‌کند؛ تب‌های خودت دست نمی‌خورد و بعد از اتمام، مرورگرت بسته نمی‌شود.</dd>
-    </dl>
+    <p class="hint">هیچ کاری لازم نیست انجام دهی — دکمه را بزن، مرورگر باز می‌شود،
+    همان‌جا وارد لینکدین شو (با گوگل یا رمز) و بعد عملیات‌ها را اجرا کن.
+    نشستت ذخیره می‌ماند و دفعات بعد مستقیم وصل می‌شود.</p>
+    <form method="post" action="/linkedin/browser">
+      <button class="btn big" type="submit">🚀 باز کردن مرورگر لینکدین</button>
+    </form>
+    <details style="margin-top:14px">
+      <summary class="hint" style="cursor:pointer">راهنمای دستی (اگر دکمه کار نکرد)</summary>
+      <dl class="deflist">
+        <dt>۱ · کروم را کاملاً ببند</dt>
+        <dd>همهٔ پنجره‌ها و آیکون کنار ساعت باید بسته شود؛ وگرنه پرچم دیباگ اعمال نمی‌شود.</dd>
+        <dt>۲ · این دستور را در PowerShell اجرا کن</dt>
+        <dd><code dir="ltr" style="direction:ltr;unicode-bidi:isolate">&amp; "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" --remote-debugging-port=9222</code></dd>
+        <dt>۳ · وارد لینکدین شو و برگرد اینجا</dt>
+        <dd>با گوگل یا با رمز — فرقی ندارد؛ نشستت در همان مرورگر می‌ماند.</dd>
+      </dl>
+    </details>
   </section>
 
   <section>
@@ -3198,6 +3206,17 @@ class Handler(BaseHTTPRequestHandler):
                 saved.append("رمز")
             self._redirect("/linkedin?msg=" + urllib.parse.quote(
                 f"{' و '.join(saved)} لینکدین در .env ذخیره شد."))
+
+        elif raw_path == "/linkedin/browser":
+            try:
+                from linkedin_live import ensure_debug_chrome
+                ok = ensure_debug_chrome()
+            except Exception:
+                ok = False
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                "🚀 مرورگر لینکدین باز شد — همان‌جا وارد شو (با گوگل یا رمز)، بعد عملیات را بزن."
+                if ok else
+                "مرورگر باز نشد — راهنمای دستی پایین صفحه را ببین."))
 
         elif raw_path == "/linkedin/run":
             f = self._read_form()

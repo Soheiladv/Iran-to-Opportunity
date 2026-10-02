@@ -219,6 +219,9 @@ def _txt(driver, by, value, default="—"):
 # بعد اسکریپت به همان نشستِ لاگین‌شده وصل می‌شود — بدون رمز، بدون فرم لاگین.
 # --------------------------------------------------------------------------- #
 DEBUG_PORT = 9222
+# پروفایل مخصوص مرورگر لینکدین — جدا از کروم روزمرهٔ کاربر، پس بستن کروم
+# لازم نیست و فلگ دیباگ همیشه اعمال می‌شود. نشست لاگین اینجا می‌ماند.
+LINKEDIN_PROFILE_DIR = BASE / ".chrome-linkedin"
 
 
 def debug_port_open(port: int = DEBUG_PORT) -> bool:
@@ -236,6 +239,62 @@ def debug_port_open(port: int = DEBUG_PORT) -> bool:
             s.close()
         except Exception:
             pass
+
+
+def find_chrome_exe():
+    """مسیر chrome.exe را پیدا می‌کند."""
+    import shutil
+
+    cands = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+             r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+             shutil.which("chrome"), shutil.which("chrome.exe")]
+    for c in cands:
+        if c and os.path.exists(c):
+            return c
+    return None
+
+
+def ensure_debug_chrome(port: int = DEBUG_PORT, timeout: int = 15) -> bool:
+    """مرورگر دیباگ را تضمین می‌کند: اگر پورت باز است هیچ‌کار؛ وگرنه خودمان
+    یک کروم تازه با پروفایل مخصوص لینکدین بالا می‌آوریم.
+
+    چون پروفایل مخصوص است، کروم روزمرهٔ کاربر لازم نیست بسته شود و فلگ
+    دیباگ همیشه اعمال می‌شود. کاربر فقط یک‌بار در همان پنجره وارد لینکدین
+    می‌شود و نشستش برای همیشه می‌ماند.
+    """
+    import subprocess
+
+    if debug_port_open(port):
+        return True
+    exe = find_chrome_exe()
+    if not exe:
+        log("❌ مرورگر Chrome روی سیستم پیدا نشد.")
+        return False
+    try:
+        LINKEDIN_PROFILE_DIR.mkdir(exist_ok=True)
+    except Exception:
+        pass
+    cmd = [exe, f"--remote-debugging-port={port}",
+           f"--user-data-dir={LINKEDIN_PROFILE_DIR}",
+           "--no-first-run", "--no-default-browser-check", "about:blank"]
+    try:
+        kw = {}
+        if hasattr(subprocess, "CREATE_NO_WINDOW"):
+            kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+        subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         stdin=subprocess.DEVNULL, close_fds=True, **kw)
+    except Exception as e:
+        log(f"❌ اجرای کروم نشد: {e}")
+        return False
+    end = time.time() + timeout
+    while time.time() < end:
+        if debug_port_open(port):
+            log("🚀 مرورگر لینکدین باز شد — اگر وارد نیستی، همان‌جا وارد شو "
+                "(با گوگل یا رمز)، بعد عملیات را بزن.")
+            return True
+        time.sleep(1)
+    log("❌ مرورگر باز شد ولی پورت دیباگ جواب نداد.")
+    return False
 
 
 def try_attach(port: int = DEBUG_PORT):
@@ -370,9 +429,9 @@ def login(driver, email: str, password: str, wait: int = 25) -> bool:
 
     if not email or not password or email == "your_email@example.com":
         log("❌ رمز لینکدین ثبت نشده — ورود انجام نشد.")
-        log("💡 اگر اکانتت با «ورود با گوگل» ساخته شده و رمزی نداری: کروم خودت را "
-            "با پورت دیباگ باز کن (راهنما در تب LinkedIn داشبورد) و حالت «اتصال» را بزن؛ "
-            "یا در همان مرورگر خودت وارد لینکدین شو و دوباره اجرا کن.")
+        log("💡 اگر اکانتت با «ورود با گوگل» ساخته شده و رمزی نداری: در تب LinkedIn "
+            "داشبورد دکمهٔ «🚀 باز کردن مرورگر لینکدین» را بزن، همان‌جا وارد شو، "
+            "بعد حالت «اتصال» را اجرا کن.")
         return False
 
     log("🔐 باز کردن صفحهٔ لاگین لینکدین…")
@@ -1133,10 +1192,11 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="LinkedIn Live — بدون webdriver_manager")
     ap.add_argument("action", choices=[
         "profile", "login", "recruiters", "jobs", "save", "scan", "follow",
-        "alert", "log"],
+        "alert", "browser", "log"],
         help="profile=لاگین+استخراج پروفایل · recruiters=ریکروتریابی · "
              "jobs=جستجوی شغل · save=ذخیرهٔ یک آدرس · scan=jobs+recruiters · "
-             "follow=فالوی پروفایل‌ها · alert=هشدار شغلی · log=نمایش لاگ")
+             "follow=فالوی پروفایل‌ها · alert=هشدار شغلی · "
+             "browser=باز کردن مرورگر لینکدین · log=نمایش لاگ")
     ap.add_argument("--keywords", default="recruiter HR talent acquisition")
     ap.add_argument("--location", default="Germany")
     ap.add_argument("--url", default="", help="آدرس آگهی برای save")
@@ -1160,6 +1220,9 @@ def main(argv=None) -> int:
         print(read_log())
         return 0
 
+    if args.action == "browser":
+        return 0 if ensure_debug_chrome(args.port) else 5
+
     email, password = get_credentials()
     driver = None
     attached = False
@@ -1169,13 +1232,17 @@ def main(argv=None) -> int:
         if args.mode in ("auto", "attach") and not args.headless:
             driver = try_attach(args.port)
             attached = driver is not None
+            if not attached and args.mode == "auto":
+                # خودکار: خودمان مرورگر دیباگ را بالا می‌آوریم و وصل می‌شویم
+                if ensure_debug_chrome(args.port):
+                    driver = try_attach(args.port)
+                    attached = driver is not None
         if driver is None:
             if args.mode == "attach":
                 log("❌ کرومی با پورت دیباگ پیدا نشد.")
-                log("   ۱) کروم را کاملاً ببند  ۲) این را در PowerShell اجرا کن:")
-                log('   & "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" '
-                    f"--remote-debugging-port={args.port}")
-                log("   ۳) وارد لینکدین شو (با گوگل یا رمز)  ۴) دوباره اجرا بزن.")
+                log("   در تب LinkedIn داشبورد دکمهٔ «🚀 باز کردن مرورگر لینکدین» را بزن،")
+                log("   یا دستی: python linkedin_live.py browser")
+                log("   بعد وارد لینکدین شو و دوباره اجرا کن.")
                 return 4
             driver = get_driver(headless=args.headless)
 
