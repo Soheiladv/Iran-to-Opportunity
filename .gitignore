@@ -29,6 +29,7 @@ dashboard/archive/
 
 # ---- لینکدین (حاوی اطلاعات شخصی) ----
 linkedin_data/
+linkedin_profile.json
 
 # ---- اسکریپت‌های آرشیو شده ----
 scripts_archive/

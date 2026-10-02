@@ -222,6 +222,7 @@ def _update_live_state(line):
         live["urls"].append({
             "name": name, "keyword": kw, "url": live["url"] or kw,
             "jobs": jobs, "ms": ms, "status": status,
+            "country": live.get("country", ""),
             "idx": len(live["urls"]) + 1,
         })
         if len(live["urls"]) > MAX_LIVE_URLS:
@@ -388,36 +389,56 @@ def gitignore_covers(name):
     return name in patterns
 
 
-def read_sources():
+def read_sources(include_disabled=False):
     """
     منابع جستجو را برمی‌گرداند. اگر job_crawler.py قابل import باشد از
     load_sources همان‌جا استفاده می‌شود (که خودش sources.json را می‌سازد
     اگر نبود). اگر نه، مستقیم فایل sources.json خوانده می‌شود؛ اگر آن هم
     نبود، None برمی‌گردد (یعنی هنوز هیچ‌جا ساخته نشده).
+
+    include_disabled=True همهٔ منابع را برمی‌گرداند — برای تب تنظیمات و
+    toggle، وگرنه شاخص‌ها (index) جا به جا می‌شد و منابع غیرفعال موقع
+    ذخیره حذف می‌شدند.
     """
     if HAS_JOB_CRAWLER:
         try:
-            return _jc.load_sources()
+            return _jc.load_sources(include_disabled=include_disabled)
+        except TypeError:      # job_crawler قدیمی بدون این آرگومان
+            try:
+                return _jc.load_sources()
+            except Exception:
+                pass
         except Exception:
             pass
     if os.path.exists(SOURCES_PATH):
         try:
             with open(SOURCES_PATH, "r", encoding="utf-8") as f:
-                return json.load(f).get("sources", [])
+                srcs = json.load(f).get("sources", [])
+            if not include_disabled:
+                srcs = [s for s in srcs if s.get("enabled", True)]
+            return srcs
         except Exception:
             return []
     return None
 
 
 def write_sources(sources):
-    if HAS_JOB_CRAWLER:
+    """sources.json را با حفظ فراداده (version/note/tracks/countries) می‌نویسد."""
+    meta = {}
+    if os.path.exists(SOURCES_PATH):
         try:
-            _jc.save_sources(sources)
-            return
+            with open(SOURCES_PATH, "r", encoding="utf-8") as f:
+                old = json.load(f)
+            if isinstance(old, dict):
+                meta = {k: v for k, v in old.items() if k != "sources"}
         except Exception:
-            pass
+            meta = {}
+    data = dict(meta)
+    data["sources"] = sources
+    data["last_updated"] = datetime.now().strftime("%Y-%m-%d")
     with open(SOURCES_PATH, "w", encoding="utf-8") as f:
-        json.dump({"sources": sources}, f, ensure_ascii=False, indent=2)
+        json.dump(data, f, ensure_ascii=False, indent=1)
+        f.write("\n")
 
 
 def list_files(folder, exts=None):
@@ -682,6 +703,53 @@ ul.check form{display:inline}
 .stat-row .st{background:#fff; border:1px solid var(--line); border-radius:var(--radius); padding:10px 16px; min-width:96px}
 .stat-row .st b{display:block; font-size:1.35rem; color:var(--teal-deep); font-variant-numeric:tabular-nums}
 .stat-row .st span{font-size:.78rem; color:var(--muted)}
+
+/* ── سربرگ: دکمهٔ بازگشت ── */
+header.top .hd{display:flex; flex-direction:column; gap:3px; min-width:0}
+a.back{color:#9fb6b1; font-size:.85rem; text-decoration:none}
+a.back:hover{color:#fff; text-decoration:underline}
+header.top .hd h1{margin:0}
+
+/* ── هیروی داشبورد ── */
+.hero-title{font-size:1.22rem; font-weight:700; color:var(--teal-deep)}
+.hero-row{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;
+  gap:14px; margin:14px 0 6px}
+.hero-actions{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+.btn.big{padding:13px 30px; font-size:1.02rem; font-weight:700;
+  box-shadow:0 4px 14px rgba(28,58,55,.18)}
+.kpi{display:flex; gap:12px; flex-wrap:wrap; margin:18px 0 4px}
+.kpi .st{flex:1 1 150px; background:linear-gradient(180deg,#fff,#fbfaf6);
+  border:1px solid var(--line); border-radius:var(--radius); padding:12px 16px}
+.kpi .st b{display:block; font-size:1.6rem; color:var(--teal-deep);
+  font-variant-numeric:tabular-nums; line-height:1.25}
+.kpi .st span{font-size:.8rem; color:var(--muted)}
+
+/* ── فیلترهای جدول زنده ── */
+.filters{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.chip{border:1px solid var(--line); background:#fff; color:var(--muted); border-radius:20px;
+  padding:5px 15px; font-size:.82rem; cursor:pointer; font-family:inherit; line-height:1.6}
+.chip:hover{border-color:var(--teal); color:var(--teal-deep)}
+.chip.on{background:var(--teal); border-color:var(--teal); color:#fff}
+table.live tr.hide{display:none}
+table.live td.src .cty{display:inline-block; background:var(--amber-soft); color:var(--amber);
+  border-radius:5px; padding:0 7px; font-size:.72rem; margin-left:6px; direction:ltr}
+table.live td.url a{max-width:330px; display:inline-block; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; vertical-align:bottom}
+.live-bar{display:flex; justify-content:space-between; align-items:center; gap:10px;
+  flex-wrap:wrap; margin-bottom:10px}
+
+/* ── کارت‌های راهنمای جستجو ── */
+.guide-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px}
+.guide-card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:15px 17px; transition:border-color .15s, transform .15s}
+.guide-card:hover{border-color:var(--teal); transform:translateY(-2px)}
+.guide-card h3{margin:0 0 6px; font-size:.95rem; color:var(--teal-deep)}
+.guide-card p{margin:0; font-size:.85rem; color:var(--muted); line-height:1.75}
+.kbd{display:inline-block; background:var(--amber-soft); color:var(--amber); border-radius:5px;
+  padding:0 7px; font-size:.78rem; direction:ltr; unicode-bidi:isolate}
+.deflist{margin:0}
+.deflist dt{font-weight:700; color:var(--teal-deep); margin-top:12px; font-size:.92rem}
+.deflist dd{margin:4px 10px 0 0; color:var(--muted); font-size:.87rem; line-height:1.8}
 """
 
 
@@ -698,9 +766,11 @@ def nav_html(active, track=None):
   <a class="{cls('dashboard')}" href="{with_track('/', t)}">🔴 گزارش زنده</a>
   <a class="{cls('education')}" href="{with_track('/education', t)}">🎓 تحصیل</a>
   <a class="{cls('visa')}" href="{with_track('/visa', t)}">🛂 نورد ویزا</a>
+  <a class="{cls('linkedin')}" href="{with_track('/linkedin', t)}">💼 LinkedIn</a>
   <a class="{cls('yield')}" href="{with_track('/yield', t)}">📈 بازده منابع</a>
-  <a class="{cls('files')}" href="{with_track('/files', t)}">📁 فایل‌ها</a>
   <a class="{cls('reports')}" href="{with_track('/reports', t)}">📑 گزارش‌ها</a>
+  <a class="{cls('files')}" href="{with_track('/files', t)}">📁 فایل‌ها</a>
+  <a class="{cls('guide')}" href="{with_track('/guide', t)}">🔎 راهنما</a>
   <a class="{cls('settings')}" href="{with_track('/settings', t)}">⚙️ تنظیمات</a>
   <a class="{cls('about')}" href="{with_track('/about', t)}">ℹ️ توضیحات</a>
 </nav>"""
@@ -750,7 +820,7 @@ def render_yield():
         except Exception:
             bank = {}
 
-    sources = read_sources() or []
+    sources = read_sources(include_disabled=True) or []
     idx_by_name = {s.get("name", ""): i for i, s in enumerate(sources)}
 
     if not stats:
@@ -825,7 +895,7 @@ def render_yield():
 </head>
 <body>
 <header class="top">
-  <h1>📈 بازده منابع در طول زمان</h1>
+  <div class="hd"><a class="back" href="/">↩ بازگشت به داشبورد</a><h1>📈 بازده منابع در طول زمان</h1></div>
   {nav_html('yield', 'job')}
 </header>
 <main>
@@ -865,7 +935,7 @@ def render_files():
 </head>
 <body>
 <header class="top">
-  <h1>📁 فایل‌های تولیدشده</h1>
+  <div class="hd"><a class="back" href="/">↩ بازگشت به داشبورد</a><h1>📁 فایل‌های تولیدشده</h1></div>
   {nav_html('files', 'job')}
 </header>
 <main>
@@ -919,12 +989,26 @@ def render_index(track=None, message=None):
   {msg_html}
   <section>
     {track_switch_html(t, '/')}
-    <div class="live-top">
-      <h2 style="border:none;margin:0">🔴 گزارش لحظه‌ای — {mt['emoji']} {mt['label']}</h2>
-      <span class="live-nums" id="liveCounter"></span>
+
+    <div class="hero-row">
+      <div>
+        <div class="hero-title">🔴 گزارش لحظه‌ای — {mt['emoji']} {mt['label']}</div>
+        <div class="hint">یک دکمه، کل مسیر؛ هر آدرسی که همین حالا بررسی می‌شود لحظه‌ای همین‌جا می‌آید.</div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn big" id="runBtn" onclick="startRun()">▶ اجرای {mt['label']}</button>
+        <span class="live-nums" id="liveCounter"></span>
+      </div>
     </div>
 
-    <div id="livePanel" style="display:none; margin:10px 0 18px">
+    <div class="kpi">
+      <div class="st"><b id="stJobs">0</b><span>{mt['kind']} یافت‌شده</span></div>
+      <div class="st"><b id="stUrls">0</b><span>آدرس بررسی‌شده</span></div>
+      <div class="st"><b id="stSrc">0</b><span>منبع تمام‌شده</span></div>
+      <div class="st"><b id="stMs">0</b><span>میانگین زمان پاسخ</span></div>
+    </div>
+
+    <div id="livePanel" style="display:none; margin:14px 0 18px">
       <div class="card" style="border-color:{mt['accent']}; background:#fdf8ef">
         <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
           <span style="width:10px; height:10px; border-radius:50%; background:var(--err); display:inline-block; animation:pulse 1.2s infinite"></span>
@@ -946,33 +1030,50 @@ def render_index(track=None, message=None):
       </div>
     </div>
 
-    <div id="log">آماده به اجرا. دکمهٔ پایین را بزن تا «{mt['label']}» شروع شود.</div>
+    <div id="log">آماده به اجرا. دکمهٔ بالا را بزن تا «{mt['label']}» شروع شود.</div>
   </section>
 
   <section id="liveTableSec" style="display:none">
-    <h2>آدرس‌های بررسی‌شده <span class="hint" id="liveTableHint"></span></h2>
+    <div class="live-bar">
+      <h2 style="border:none;margin:0">آدرس‌های بررسی‌شده <span class="hint" id="liveTableHint"></span></h2>
+      <div class="filters">
+        <button class="chip on" data-f="all" onclick="setFilter('all',this)">همه</button>
+        <button class="chip" data-f="ok" onclick="setFilter('ok',this)">✅ پاسخ داد</button>
+        <button class="chip" data-f="err" onclick="setFilter('err',this)">⚠️ جواب نداد</button>
+        <button class="chip" data-f="jobs" onclick="setFilter('jobs',this)">🎯 آگهی‌دار</button>
+      </div>
+    </div>
     <div class="scroll-y">
       <table class="live"><thead><tr>
         <th>#</th><th>منبع</th><th>کلیدواژه</th><th>آدرس</th>
         <th>{mt['kind']}</th><th>زمان</th><th>وضعیت</th>
       </tr></thead>
       <tbody id="liveRows"></tbody></table>
+      <p class="empty" id="liveEmpty" style="padding:14px 4px">هنوز آدرسی بررسی نشده است.</p>
     </div>
   </section>
 
   <section>
-    <h2>اجرای مسیر {mt['label']}</h2>
-    <ol class="steps">{steps_html}</ol>
-    <div class="stat-row">
-      <div class="st"><b id="stJobs">0</b><span>{mt['kind']} یافت‌شده</span></div>
-      <div class="st"><b id="stUrls">0</b><span>آدرس بررسی‌شده</span></div>
-      <div class="st"><b id="stSrc">0</b><span>منبع تمام‌شده</span></div>
-      <div class="st"><b id="stMs">0</b><span>میانگین زمان پاسخ</span></div>
+    <h2>🔎 راهنمای سریع جستجو</h2>
+    <div class="guide-grid">
+      <div class="guide-card"><h3>۱ · مسیر را انتخاب کن</h3>
+        <p>کاریابی یا تحصیل؟ سوییچ بالای صفحه همه‌جا اعمال می‌شود — منابع، اجرا و گزارش‌ها.</p></div>
+      <div class="guide-card"><h3>۲ · اجرا را بزن</h3>
+        <p>{len(read_sources() or [])} منبع به‌ترتیب پربازده بررسی می‌شوند و هر آدرس همین‌جا لحظه‌ای ثبت می‌شود.</p></div>
+      <div class="guide-card"><h3>۳ · نتیجه را اقدام کن</h3>
+        <p>در تب «گزارش‌ها» روی هر آگهی دکمهٔ «اقدام کن» و «کاورلتر» را بزن — در بانک اقدامات ثبت می‌شود.</p></div>
+      <div class="guide-card"><h3>۴ · لینکدین را وصل کن</h3>
+        <p>با تب «💼 LinkedIn» وارد شو، ریکروتر پیدا کن و آگهی دلخواه را ذخیره کن.</p></div>
     </div>
-    <p style="margin-top:16px">
-      <button class="btn" id="runBtn" onclick="startRun()">▶ اجرای {mt['label']}</button>
-      <span class="hint" style="margin-right:10px">مسیر فعال: {mt['emoji']} {mt['label']}</span>
+    <p style="margin-top:14px">
+      <a class="btn" href="{with_track('/guide', t)}">🔎 راهنمای کامل جستجو</a>
+      <a class="btn" href="{with_track('/reports', t)}" style="background:var(--amber); margin-right:8px">📑 رفتن به نتایج</a>
     </p>
+  </section>
+
+  <section>
+    <h2>مراحل پایپ‌لاین {mt['label']}</h2>
+    <ol class="steps">{steps_html}</ol>
   </section>
 
   <footer style="text-align:center; padding:30px 0 10px; color:var(--muted); font-size:.8rem; border-top:1px solid var(--line); margin-top:30px">
@@ -989,6 +1090,9 @@ function startRun(){{
   document.getElementById('runBtn').disabled = true;
   document.getElementById('log').textContent = 'شروع شد…';
   document.getElementById('livePanel').style.display = 'block';
+  document.getElementById('liveRows').innerHTML = '';
+  document.getElementById('liveEmpty').style.display = 'block';
+  document.getElementById('liveEmpty').textContent = 'در حال بررسی…';
   seenUrls = 0;
   fetch('/run?track=' + TRACK, {{method:'POST'}})
     .then(r => r.json()).then(() => {{
@@ -998,6 +1102,31 @@ function startRun(){{
 }}
 
 function fmtMs(ms){{ return ms >= 1000 ? (ms/1000).toFixed(1) + 's' : ms + 'ms'; }}
+
+let FILTER = 'all';
+function setFilter(f, btn){{
+  FILTER = f;
+  document.querySelectorAll('.filters .chip').forEach(c => c.classList.remove('on'));
+  if (btn) btn.classList.add('on');
+  applyFilter();
+}}
+function applyFilter(){{
+  const rows = document.querySelectorAll('#liveRows tr');
+  let shown = 0;
+  rows.forEach(tr => {{
+    const st = tr.dataset.status;
+    const jobs = Number(tr.dataset.jobs) || 0;
+    const hit = FILTER === 'all'
+      || (FILTER === 'jobs' ? jobs > 0 : st === FILTER);
+    tr.classList.toggle('hide', !hit);
+    if (hit) shown++;
+  }});
+  const empty = document.getElementById('liveEmpty');
+  if (empty && rows.length) {{
+    empty.style.display = shown ? 'none' : 'block';
+    empty.textContent = shown ? '' : 'برای این فیلتر ردیفی نیست.';
+  }}
+}}
 
 function pollStatus(){{
   fetch('/run-status').then(r => r.json()).then(s => {{
@@ -1044,24 +1173,33 @@ function pollStatus(){{
     for (let i = seenUrls; i < urls.length; i++) {{
       const u = urls[i];
       const okc = u.status === 'ok';
+      const jobs = Number(u.jobs) || 0;
+      const cty = u.country ? `<span class="cty">${{u.country}}</span>` : '';
+      const jobsCell = okc ? (jobs ? `<strong>${{jobs}}</strong>` : '0') : '—';
+      const badge = okc
+        ? (jobs ? '<span class="badge ok">🎯 آگهی‌دار</span>'
+                : '<span class="badge ok">پاسخ داد</span>')
+        : '<span class="badge err">جواب نداد</span>';
       const tr = document.createElement('tr');
+      tr.dataset.status = okc ? 'ok' : 'err';
+      tr.dataset.jobs = jobs;
       tr.innerHTML =
         `<td class="idx">${{u.idx}}</td>` +
-        `<td class="src">${{u.name || ''}}</td>` +
+        `<td class="src">${{cty}}{{u.name || ''}}</td>` +
         `<td class="kw">${{u.keyword || ''}}</td>` +
-        `<td class="url"><a href="${{u.url}}" target="_blank" rel="noopener">${{u.url}}</a></td>` +
-        `<td class="num">${{okc ? u.jobs : '—'}}</td>` +
+        `<td class="url"><a href="${{u.url}}" target="_blank" rel="noopener" title="${{u.url}}">${{u.url}}</a></td>` +
+        `<td class="num">${{jobsCell}}</td>` +
         `<td class="ms">${{u.ms ? fmtMs(u.ms) : '—'}}</td>` +
-        `<td>${{okc
-            ? '<span class="badge ok">پاسخ داد</span>'
-            : '<span class="badge err">جواب نداد</span>'}}</td>`;
+        `<td>${{badge}}</td>`;
       tbody.appendChild(tr);
     }}
     if (urls.length > seenUrls) {{
       seenUrls = urls.length;
       tbody.parentElement.scrollTop = tbody.parentElement.scrollHeight;
+      document.getElementById('liveEmpty').style.display = 'none';
       document.getElementById('liveTableHint').textContent =
         `${{seenUrls}} آدرس · ${{(lv.url_done || 0)}}/${{(lv.url_total_all || 0)}}`;
+      applyFilter();
     }}
 
     // آمار پایین صفحه
@@ -1084,6 +1222,359 @@ function pollStatus(){{
 pollStatus();
 </script>
 </body></html>"""
+
+# ── LinkedIn زنده ────────────────────────────────────────────────────────────
+linkedin_state = {"running": False, "cmd": "", "log": []}
+LI_LOCK = threading.Lock()
+
+
+def _li_read_json(path, default):
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return default
+
+
+def run_linkedin_background(action, keywords="", location="", applicant="", url=""):
+    """یک عملیات linkedin_live.py را در پس‌زمینه اجرا می‌کند و خروجی‌اش را استریم می‌کند."""
+    with LI_LOCK:
+        if linkedin_state["running"]:
+            return False
+        linkedin_state["running"] = True
+        linkedin_state["log"] = []
+        linkedin_state["cmd"] = action
+
+    def _li_log(line):
+        linkedin_state["log"].append(line)
+        if len(linkedin_state["log"]) > 400:
+            del linkedin_state["log"][: len(linkedin_state["log"]) - 400]
+
+    def _work():
+        script = os.path.join(BASE, "linkedin_live.py")
+        if not os.path.exists(script):
+            _li_log("❌ فایل linkedin_live.py پیدا نشد.")
+            with LI_LOCK:
+                linkedin_state["running"] = False
+            return
+        cmd = [sys.executable, "-u", script, action]
+        if keywords:
+            cmd += ["--keywords", keywords]
+        if location:
+            cmd += ["--location", location]
+        if applicant:
+            cmd += ["--applicant", applicant]
+        if url:
+            cmd += ["--url", url]
+        _li_log(f"▶ {' '.join(cmd[2:])}")
+        try:
+            proc = subprocess.Popen(
+                cmd, cwd=BASE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1, encoding="utf-8", errors="replace",
+            )
+            start = time.monotonic()
+            for line in proc.stdout:
+                _li_log(line.rstrip("\r\n"))
+                if time.monotonic() - start > 300:
+                    proc.kill()
+                    _li_log("⏱️ بیش از ۵ دقیقه طول کشید — متوقف شد.")
+                    break
+            proc.wait(timeout=5)
+            _li_log(f"{'✅' if proc.returncode == 0 else '❌'} پایان اجرا (کد {proc.returncode})")
+        except Exception as e:
+            _li_log(f"❌ خطا: {e}")
+        finally:
+            with LI_LOCK:
+                linkedin_state["running"] = False
+
+    threading.Thread(target=_work, daemon=True).start()
+    return True
+
+
+def render_linkedin(track=None, message=None):
+    """تب LinkedIn — ورود زنده، ریکروتریابی و ذخیرهٔ شغل."""
+    from linkedin_live import (DB_PATH, JOBS_PATH, PROFILE_OUT,
+                               find_driver_path, get_credentials, read_log)
+
+    t = track_of(track)
+    email, password = get_credentials()
+    driver_path = find_driver_path()
+    profile = _li_read_json(str(PROFILE_OUT), {})
+    db = _li_read_json(str(DB_PATH), {})
+    recruiters = list(db.get("_recruiters", {}).values()) if isinstance(db, dict) else []
+    recruiters.sort(key=lambda r: (not r.get("recruiter"), r.get("name", "")))
+    jobs = _li_read_json(str(JOBS_PATH), [])
+    if isinstance(jobs, dict):
+        jobs = jobs.get("jobs", [])
+
+    msg_html = f'<div class="warn">{html.escape(message)}</div>' if message else ""
+    drv_badge = ('<span class="badge ok">محلی نصب است ✓</span>' if driver_path
+                 else '<span class="badge err">نصب نشده ✗</span>')
+    cred_badge = ('<span class="badge ok">ثبت شده ✓</span>' if (email and password)
+                  else '<span class="badge err">ثبت نشده ✗</span>')
+    running = linkedin_state["running"]
+
+    log_text = "\n".join(linkedin_state["log"]) or read_log(200) or \
+        "هنوز عملیاتی اجرا نشده است."
+
+    def rec_row(r):
+        kind = ('<span class="badge ok">ریکروتر 🎯</span>' if r.get("recruiter")
+                else '<span class="badge" style="background:#e8eef4;color:#3a5a7a">متخصص</span>')
+        return (f"<tr><td><b>{html.escape(r.get('name','—'))}</b>"
+                f"<div class='hint'>{html.escape(r.get('headline',''))}</div></td>"
+                f"<td>{html.escape(r.get('location','—'))}</td>"
+                f"<td>{kind}</td>"
+                f"<td class='url'><a href='{html.escape(r.get('url','#'))}' "
+                f"target='_blank' rel='noopener'>پروفایل ↗</a></td></tr>")
+
+    rec_html = (
+        "<table class='files'><thead><tr><th>نام و سمت</th><th>موقعیت</th>"
+        "<th>نوع</th><th>لینک</th></tr></thead><tbody>"
+        + "".join(rec_row(r) for r in recruiters[:60]) + "</tbody></table>"
+        if recruiters else
+        '<p class="empty">هنوز ریکروتری ذخیره نشده — از فرم پایین جستجو را بزن.</p>')
+
+    def job_row(j):
+        return (f"<tr><td><b>{html.escape(j.get('title','—'))}</b>"
+                f"<div class='hint'>{html.escape(j.get('company',''))} · "
+                f"{html.escape(j.get('saved_at',''))}</div></td>"
+                f"<td class='url'><a href='{html.escape(j.get('url','#'))}' "
+                f"target='_blank' rel='noopener'>آگهی ↗</a></td></tr>")
+
+    job_html = (
+        "<table class='files'><thead><tr><th>عنوان شغل</th><th>لینک</th></tr></thead>"
+        "<tbody>" + "".join(job_row(j) for j in jobs[:60]) + "</tbody></table>"
+        if jobs else '<p class="empty">هنوز آگهی‌ای ذخیره نشده است.</p>')
+
+    prof_html = ""
+    if profile:
+        prof_html = f"""
+        <div class="card" style="border-color:var(--teal)">
+          <div style="font-size:1.1rem;font-weight:700">{html.escape(profile.get('name','—'))}</div>
+          <div class="hint">{html.escape(profile.get('headline','—'))}</div>
+          <div class="hint">موقعیت: {html.escape(profile.get('location','—'))} ·
+            اتصال‌ها: {html.escape(str(profile.get('connections','—')))}</div>
+          <div class="hint" style="direction:ltr;text-align:left">
+            {html.escape(profile.get('url',''))} · {html.escape(profile.get('scraped_at',''))}</div>
+        </div>"""
+    else:
+        prof_html = '<p class="empty">پروفایلی هنوز استخراج نشده — «ورود و استخراج پروفایل» را بزن.</p>'
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — LinkedIn</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <div class="hd"><a class="back" href="{with_track('/', t)}">↩ بازگشت به داشبورد</a>
+    <h1>💼 LinkedIn — ورود زنده، ریکروتریابی، ذخیرهٔ شغل</h1></div>
+  {nav_html('linkedin', t)}
+</header>
+<main>
+  {msg_html}
+
+  <section>
+    <h2>وضعیت اتصال</h2>
+    <div class="kpi">
+      <div class="st"><b>{'✓' if driver_path else '✗'}</b><span>درایور محلی {drv_badge}</span></div>
+      <div class="st"><b>{'✓' if (email and password) else '✗'}</b><span>اعتبارنامه {cred_badge}</span></div>
+      <div class="st"><b>{len(recruiters)}</b><span>ریکروتر ذخیره‌شده</span></div>
+      <div class="st"><b>{len(jobs)}</b><span>شغل ذخیره‌شده</span></div>
+    </div>
+    <p class="hint">
+      درایور از <code>chromedriver-py</code> محلی خوانده می‌شود و هیچ دانلودی از گوگل انجام نمی‌شود.
+      اعتبارنامه فقط از <code>.env</code> خوانده می‌شود: <span class="kbd">LINKEDIN_EMAIL</span>
+      و <span class="kbd">LINKEDIN_PASSWORD</span>.
+      {'<b style="color:var(--err)">⚠️ هنوز در .env ثبت نشده — از تب تنظیمات یا فایل .env پر کن.</b>' if not (email and password) else ''}
+    </p>
+
+    <form class="inline" method="post" action="/linkedin/run">
+      <label>عملیات
+        <select name="action">
+          <option value="profile">🔐 ورود + استخراج پروفایل</option>
+          <option value="recruiters">🔎 ریکروتریابی (افراد)</option>
+          <option value="jobs">💼 جستجوی شغل</option>
+          <option value="scan">⚡ جستجوی کامل (ریکروتر + شغل)</option>
+        </select>
+      </label>
+      <label>شناسهٔ متقاضی
+        <select name="applicant">
+          <option value="">(بدون متقاضی)</option>
+          {"".join(f'<option value="{html.escape(a.get("id",""))}">{html.escape(a.get("name_fa") or a.get("name", a.get("id","")))}</option>' for a in load_applicants())}
+        </select>
+      </label>
+      <label class="full">کلیدواژه
+        <input name="keywords" value="recruiter HR talent acquisition" placeholder="recruiter HR, یا software engineer">
+      </label>
+      <label>محل / کشور
+        <input name="location" value="Germany" placeholder="Germany, Finland, …">
+      </label>
+      <div class="full">
+        <button class="btn" type="submit" {'disabled' if running else ''}>
+          {'⏳ در حال اجرا…' if running else '▶ اجرا در مرورگر'}
+        </button>
+        <span class="hint" style="margin-right:10px">پنجرهٔ Chrome باز می‌شود و لاگ لحظه‌ای همین‌جاست.</span>
+      </div>
+    </form>
+
+    <form class="inline" method="post" action="/linkedin/save" style="margin-top:14px">
+      <label class="full">ذخیرهٔ یک آگهی (Save در لینکدین)
+        <input name="url" placeholder="https://www.linkedin.com/jobs/view/..." required>
+      </label>
+      <div class="full"><button class="btn" style="background:var(--amber)" type="submit"
+        {'disabled' if running else ''}>⭐ ذخیرهٔ شغل</button></div>
+    </form>
+  </section>
+
+  <section>
+    <h2>📜 لاگ زنده <span class="hint" id="liState">{'در حال اجرا…' if running else 'آماده'}</span></h2>
+    <div id="liLog" style="background:var(--teal-deep); color:#e6efec; font-family:monospace;
+      font-size:.82rem; padding:14px 16px; border-radius:var(--radius); min-height:120px;
+      max-height:320px; overflow:auto; white-space:pre-wrap; direction:ltr; text-align:left">{html.escape(log_text)}</div>
+  </section>
+
+  <section>
+    <h2>👤 پروفایل استخراج‌شده</h2>
+    {prof_html}
+  </section>
+
+  <section>
+    <h2>🎯 ریکروترها و متخصصان منابع انسانی</h2>
+    {rec_html}
+  </section>
+
+  <section>
+    <h2>⭐ آگهی‌های ذخیره‌شده</h2>
+    {job_html}
+  </section>
+</main>
+
+<script>
+let liPoll = null;
+function liFetch(){{
+  fetch('/linkedin/status').then(r => r.json()).then(s => {{
+    const box = document.getElementById('liLog');
+    if (s.log && s.log.length) {{
+      box.textContent = s.log.join('\\n');
+      box.scrollTop = box.scrollHeight;
+    }}
+    document.getElementById('liState').textContent = s.running ? 'در حال اجرا…' : 'آماده';
+    if (!s.running && liPoll) {{
+      clearInterval(liPoll); liPoll = null;
+      setTimeout(() => location.reload(), 800);
+    }}
+  }});
+}}
+if ({'true' if running else 'false'}) {{
+  liPoll = setInterval(liFetch, 1500);
+  liFetch();
+}}
+</script>
+</body></html>"""
+
+
+def render_guide(track=None):
+    """راهنمای جستجو — از کجا شروع کنی، کلیدواژه چیست، نتیجه کجا می‌رود."""
+    t = track_of(track)
+    mt = track_meta(t)
+    sources = read_sources(include_disabled=True) or []
+    active = sum(1 for s in sources if s.get("enabled", True))
+    blocked = [s.get("name", "") for s in sources if not s.get("enabled", True)]
+
+    kw_rows = [
+        ("💼 کاریابی", "software engineer · backend · devops", "مشاغل فنی آی‌تی",
+         "DE · NL · SE · FI · UK"),
+        ("💼 کاریابی", "it manager · systems administrator", "مدیریت فناوری اطلاعات",
+         "DE · AT · CH · CA"),
+        ("💼 کاریابی", "nurse · krankenpfleger · pediatric nurse", "پرستاری (بیشترین کمبود)",
+         "DE · AT · NO · FI"),
+        ("💼 کاریابی", "midwife · hebamme · sairaanhoitaja", "مامایی",
+         "FI · DE · AT · SE"),
+        ("💼 کاریابی", "welder · electrician · technician", "مشاغل فنی",
+         "DE · PL · CZ · NO"),
+        ("🎓 تحصیل", "master degree · MSc", "کارشناسی ارشد",
+         "FI · DE · NL · SE"),
+        ("🎓 تحصیل", "bachelor degree · BSc", "کارشناسی",
+         "FI · DE · NL · UK"),
+        ("🎓 تحصیل", "exchange semester · double degree", "مهمان/تبادلی",
+         "FI · DE · NL"),
+    ]
+    kw_html = "".join(
+        f"<tr><td>{k}</td><td><span class='kbd'>{html.escape(v)}</span></td>"
+        f"<td>{html.escape(what)}</td><td><span class='kbd'>{html.escape(where)}</span></td></tr>"
+        for k, v, what, where in kw_rows
+    )
+
+    return f"""<!doctype html>
+<html lang="fa"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Migration Hunter — راهنمای جستجو</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
+<style>{PAGE_STYLE}</style>
+</head>
+<body>
+<header class="top">
+  <div class="hd"><a class="back" href="{with_track('/', t)}">↩ بازگشت به داشبورد</a>
+    <h1>🔎 راهنمای جستجو</h1></div>
+  {nav_html('guide', t)}
+</header>
+<main>
+  <section>
+    <h2>جستجو چطور کار می‌کند؟</h2>
+    <div class="guide-grid">
+      <div class="guide-card"><h3>۱ · منابع</h3>
+        <p>{len(sources)} منبع در <code>sources.json</code> ثبت است که {active} تایشان فعال‌اند.
+        کشور، نوع و توضیح فارسی هر کدام در تب «تنظیمات» دیده می‌شود.</p></div>
+      <div class="guide-card"><h3>۲ · کراولر</h3>
+        <p>با «▶ اجرای {mt['label']}» هر منبع به‌ترتیب پربازده بررسی می‌شود؛ آگهی‌ها با
+        JSON-LD و لینک‌های آگهی استخراج می‌شوند.</p></div>
+      <div class="guide-card"><h3>۳ · نتیجه</h3>
+        <p>خروجی‌ها در <code>SPONSOR_RESULTS.json</code> و <code>CRAWLER_RESULTS.json</code>
+        می‌ریزد و در تب «گزارش‌ها» ادغام و فیلتر می‌شود.</p></div>
+      <div class="guide-card"><h3>۴ · اقدام</h3>
+        <p>روی هر آگهی «اقدام کن» و «کاورلتر» بزن؛ در بانک اقدامات ثبت و وضعیتش پیگیری می‌شود.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>کلیدواژه‌هایی که جواب می‌دهند</h2>
+    <table class="files"><thead><tr>
+      <th>مسیر</th><th>کلیدواژه</th><th>چه چیزی</th><th>کشورها</th>
+    </tr></thead><tbody>{kw_html}</tbody></table>
+    <p class="hint">کلیدواژه را می‌توانی در تب «تنظیمات» عوض کنی — هر متقاضی کلیدواژه‌های خودش را دارد.
+    ترکیب زبان مقصد (مثلاً <span class="kbd">hebamme</span> برای مامایی در آلمان) نتایج
+    به‌مراتب بیشتری می‌دهد تا معادل انگلیسی.</p>
+  </section>
+
+  <section>
+    <h2>نکته‌های سریع</h2>
+    <dl class="deflist">
+      <dt>مسیر را درست انتخاب کن</dt>
+      <dd>سوییچ بالای داشبورد (کاریابی ⇄ تحصیل) همه‌جا اعمال می‌شود؛ این دو مسیر از هم جداست و قاطی نمی‌شوند.</dd>
+      <dt>منبعی که جواب نمی‌دهد را خاموش کن</dt>
+      <dd>در تب «📈 بازده منابع» ببین کدام منبع چند اجرا صفر داده؛ خاموشش کن تا سرعت بالا برود.</dd>
+      <dt>منابع مسدود</dt>
+      <dd>{", ".join(html.escape(b) for b in blocked) if blocked else "—"} — دسترسی‌شان بسته است و غیرفعال شده‌اند تا وقت اجرا تلف نشود.</dd>
+      <dt>لینکدین</dt>
+      <dd>در تب «💼 LinkedIn» وارد شو، ریکروتر پیدا کن و آگهی ذخیره کن — خروجی‌ها در
+      <code>memory/LINKEDIN_DB.json</code> و <code>memory/LINKEDIN_JOBS.json</code> می‌ریزد.</dd>
+      <dt>نتیجه را نگه دار</dt>
+      <dd>پس از هر اجرا، گزارش متقاضی را از تب «📑 گزارش‌ها» ببین و فایل اکسل را بگیر؛ تغییر وضعیت هر آگهی تاریخچه ثبت می‌کند.</dd>
+    </dl>
+    <p style="margin-top:18px">
+      <a class="btn" href="{with_track('/', t)}">🔴 شروع جستجو</a>
+      <a class="btn" href="{with_track('/settings', 'job')}" style="background:var(--amber); margin-right:8px">⚙️ تنظیمات متقاضی و منابع</a>
+      <a class="btn" href="{with_track('/reports', 'job')}" style="background:var(--teal-deep); margin-right:8px">📑 گزارش‌ها</a>
+    </p>
+  </section>
+</main>
+</body></html>"""
+
 
 def _edu_load_results(track=None):
     """آخرین نتیجهٔ کراولر تحصیل را می‌خواند."""
@@ -1290,7 +1781,7 @@ def render_education(message=None):
 </head>
 <body>
 <header class="top">
-  <h1>🎓 مسیر تحصیل</h1>
+  <div class="hd"><a class="back" href="{with_track('/', t)}">↩ بازگشت به داشبورد</a><h1>🎓 مسیر تحصیل</h1></div>
   {nav_html('education', t)}
 </header>
 <main>
@@ -1325,7 +1816,7 @@ def render_visa(applicant=None, message=None):
     t = DEFAULT_TRACK
     if not HAS_VISA:
         return f"""<!doctype html><html lang="fa"><head><meta charset="utf-8">
-<style>{PAGE_STYLE}</style></head><body><header class="top"><h1>🛂 نورد ویزا</h1>
+<style>{PAGE_STYLE}</style></head><body><header class="top"><div class="hd"><a class="back" href="{with_track('/', t)}">↩ بازگشت به داشبورد</a><h1>🛂 نورد ویزا</h1></div>
 {nav_html('visa', t)}</header><main>
 <p class="empty">ماژول visa_tracker.py پیدا نشد.</p></main></body></html>"""
 
@@ -1355,7 +1846,7 @@ def render_visa(applicant=None, message=None):
 <title>Migration Hunter — نورد ویزا</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css">
 <style>{PAGE_STYLE}</style></head><body>
-<header class="top"><h1>🛂 نورد ویزای همراه</h1>{nav_html('visa', t)}</header>
+<header class="top"><div class="hd"><a class="back" href="{with_track('/', t)}">↩ بازگشت به داشبورد</a><h1>🛂 نورد ویزای همراه</h1></div>{nav_html('visa', t)}</header>
 <main>
   {msg_html}
   <section>
@@ -1484,7 +1975,7 @@ def render_visa(applicant=None, message=None):
 </head>
 <body>
 <header class="top">
-  <h1>🛂 نورد ویزای همراه — {html.escape(cur)}</h1>
+  <div class="hd"><a class="back" href="{with_track('/visa', t)}">↩ بازگشت به نورد ویزا</a><h1>🛂 نورد ویزای همراه — {html.escape(cur)}</h1></div>
   {nav_html('visa', t)}
 </header>
 <main>
@@ -1605,7 +2096,7 @@ def render_settings(message=None):
 
     msg_html = f'<div class="card" style="border-color:var(--ok);margin-bottom:20px">{html.escape(message)}</div>' if message else ""
 
-    sources = read_sources()
+    sources = read_sources(include_disabled=True)
     if sources is None:
         sources_html = ('<p class="empty">هنوز sources.json ساخته نشده — یک‌بار از تب داشبورد «اجرای پایپ‌لاین» '
                          'را بزن (یا مستقیم <code>job_crawler.py</code> را اجرا کن) تا با لیست پیش‌فرض ساخته شود.</p>')
@@ -1615,14 +2106,22 @@ def render_settings(message=None):
             by_country.setdefault(s.get("country", "؟"), []).append((i, s))
         rows = []
         for country in sorted(by_country):
-            rows.append(f'<tr><td colspan="5" style="background:var(--amber-soft);font-weight:700">{html.escape(country)}</td></tr>')
+            rows.append(f'<tr><td colspan="6" style="background:var(--amber-soft);font-weight:700">{html.escape(country)}</td></tr>')
             for i, s in by_country[country]:
                 enabled = s.get("enabled", True)
                 badge = '<span class="badge ok">فعال</span>' if enabled else '<span class="badge err">غیرفعال</span>'
+                cat = s.get("category") or ("education" if s.get("track") == "education" else "job")
+                cat_label = '<span class="badge" style="background:#e8eef4;color:#3a5a7a">🎓 تحصیل</span>' \
+                    if cat == "education" else '<span class="badge" style="background:#e2efe6;color:var(--ok)">💼 کاریابی</span>'
+                desc = html.escape(s.get("persian_desc", "") or "—")
+                urls_cnt = len(s.get("search_urls", []) or [])
                 rows.append(f"""
                 <tr>
-                  <td>{html.escape(s.get('name',''))}</td>
-                  <td>{html.escape(s.get('type','job_board'))}</td>
+                  <td><b>{html.escape(s.get('name',''))}</b>
+                    <div class="hint">{desc}</div></td>
+                  <td>{html.escape(s.get('type','job_board'))}
+                    <div class="hint">{urls_cnt} آدرس جستجو</div></td>
+                  <td>{cat_label}</td>
                   <td>{s.get('trust','—')}</td>
                   <td>{badge}</td>
                   <td>
@@ -1636,10 +2135,12 @@ def render_settings(message=None):
                 </tr>""")
         sources_html = f"""
         <table class="files"><thead><tr>
-          <th>نام منبع</th><th>نوع</th><th>اعتبار</th><th>وضعیت</th><th></th>
+          <th>نام منبع و توضیح</th><th>نوع</th><th>دسته</th><th>اعتبار</th><th>وضعیت</th><th></th>
         </tr></thead><tbody>{''.join(rows)}</tbody></table>
         <p class="hint">این‌ها همان منابعی هستند که job_crawler.py موقع اجرای پایپ‌لاین جستجو می‌کند.
-        غیرفعال‌کردن یک منبع یعنی در اجرای بعدی رد می‌شود، بدون نیاز به دست‌زدن به کد.</p>
+        غیرفعال‌کردن یک منبع یعنی در اجرای بعدی رد می‌شود، بدون نیاز به دست‌زدن به کد.
+        منابعی که دسترسی‌شان مسدود است (مثل StepStone و Indeed اتریش) غیرفعال شده‌اند تا
+        وقت اجرا تلف نشود.</p>
         """
 
     def applicant_block(a):
@@ -1704,7 +2205,7 @@ def render_settings(message=None):
 </head>
 <body>
 <header class="top">
-  <h1>⚙️ تنظیمات</h1>
+  <div class="hd"><a class="back" href="/">↩ بازگشت به داشبورد</a><h1>⚙️ تنظیمات</h1></div>
   {nav_html('settings', 'job')}
 </header>
 <main>
@@ -1764,7 +2265,7 @@ def render_about():
 </head>
 <body>
 <header class="top">
-  <h1>ℹ️ این صفحه چیکار می‌کند</h1>
+  <div class="hd"><a class="back" href="/">↩ بازگشت به داشبورد</a><h1>ℹ️ این صفحه چیکار می‌کند</h1></div>
   {nav_html('about', 'job')}
 </header>
 <main class="about">
@@ -2365,7 +2866,7 @@ def render_reports(applicant_id=None, message=None, error=None, country="FI"):
 </head>
 <body>
 <header class="top">
-  <h1>📑 گزارش‌ها</h1>
+  <div class="hd"><a class="back" href="/">↩ بازگشت به داشبورد</a><h1>📑 گزارش‌ها</h1></div>
   {nav_html('reports', 'job')}
 </header>
 <main>
@@ -2453,6 +2954,19 @@ class Handler(BaseHTTPRequestHandler):
             self._send(render_settings())
         elif parsed.path == "/about":
             self._send(render_about())
+        elif parsed.path == "/linkedin":
+            msg = (qs.get("msg") or [None])[0]
+            trk = (qs.get("track") or [None])[0]
+            self._send(render_linkedin(track=trk, message=msg))
+        elif parsed.path == "/linkedin/status":
+            self._send(json.dumps({
+                "running": linkedin_state["running"],
+                "cmd": linkedin_state["cmd"],
+                "log": linkedin_state["log"][-200:],
+            }), content_type="application/json")
+        elif parsed.path == "/guide":
+            trk = (qs.get("track") or [None])[0]
+            self._send(render_guide(track=trk))
         elif parsed.path == "/reports":
             aid = (qs.get("applicant") or [None])[0]
             msg = (qs.get("msg") or [None])[0]
@@ -2514,6 +3028,34 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=run_pipeline_background,
                                  args=(track,), daemon=True).start()
             self._send(json.dumps({"ok": True}), content_type="application/json")
+
+        elif raw_path == "/linkedin/run":
+            f = self._read_form()
+            action = f.get("action", "profile").strip()
+            if action not in ("profile", "login", "recruiters", "jobs", "scan"):
+                action = "profile"
+            started = run_linkedin_background(
+                action,
+                keywords=f.get("keywords", "").strip(),
+                location=f.get("location", "").strip(),
+                applicant=f.get("applicant", "").strip(),
+            )
+            if not started:
+                self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                    "یک عملیات دیگر در حال اجراست — صبر کن تمام شود."))
+                return
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                "عملیات در مرورگر Chrome شروع شد — لاگ را پایین ببین."))
+
+        elif raw_path == "/linkedin/save":
+            f = self._read_form()
+            url = f.get("url", "").strip()
+            if not url:
+                self._redirect("/linkedin?msg=" + urllib.parse.quote("آدرس آگهی خالی است."))
+                return
+            started = run_linkedin_background("save", url=url)
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                "در حال ذخیرهٔ آگهی…" if started else "یک عملیات دیگر در حال اجراست."))
 
         elif raw_path == "/education/app-add":
             if not HAS_EDU_CRAWLER:
@@ -2638,7 +3180,7 @@ class Handler(BaseHTTPRequestHandler):
                 idx = int(form.get("index", "-1"))
             except ValueError:
                 idx = -1
-            sources = read_sources() or []
+            sources = read_sources(include_disabled=True) or []
             if 0 <= idx < len(sources):
                 sources[idx]["enabled"] = not sources[idx].get("enabled", True)
                 write_sources(sources)
@@ -2659,7 +3201,7 @@ class Handler(BaseHTTPRequestHandler):
             if not (name and country and url):
                 self._send(render_settings(message="خطا: نام، کشور و URL الزامی است."), status=400)
                 return
-            sources = read_sources() or []
+            sources = read_sources(include_disabled=True) or []
             sources.append({
                 "name": name, "country": country, "type": "custom", "enabled": True,
                 "url": url, "search_urls": [url], "trust": max(0, min(100, trust)),

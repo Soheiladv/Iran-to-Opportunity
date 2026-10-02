@@ -1,7 +1,7 @@
 {
  "version": "3.0",
- "last_updated": "2026-10-01",
- "note": "مرجع واحد بانک منابع. track=job برای آگهی شغلی، track=education برای برنامهٔ تحصیلی. هیچ لیست هاردکدی در کد وجود ندارد — همه‌چیز از همین فایل خوانده می‌شود.",
+ "last_updated": "2026-10-02",
+ "note": "مرجع واحد بانک منابع. track=job برای آگهی شغلی، track=education برای برنامهٔ تحصیلی. هیچ لیست هاردکدی در کد وجود ندارد — همه‌چیز از همین فایل خوانده می‌شود. persian_desc توضیح فارسی نمایشی در داشبورد است؛ category برای گروه‌بندی در UI.",
  "tracks": {
   "job": {
    "label": "🔍 کاریابی",
@@ -53,7 +53,7 @@
     "https://tyomarkkinatori.fi/en/personal-customers/vacancies?keyword=social+worker"
    ],
    "trust": 95,
-   "persian_desc": "فنلاند — پورتال رسمی ministry of employment; ۱۴۹ آدرس بررسی‌شده در سال ۱۴۰۳",
+   "persian_desc": "فنلاند — پورتال رسمی وزارت اشتغال؛ آگهی‌های تأییدشدهٔ دولتی و خصوصی",
    "category": "job"
   },
   {
@@ -70,7 +70,7 @@
     "https://www.workinfinland.com/en/open-jobs?keyword=nursing"
    ],
    "trust": 90,
-   "persian_desc": "FI —portal rasmi authorities jobjob listings",
+   "persian_desc": "فنلاند — پورتال رسمی متخصصان خارجی؛ راهنمای کار، مجوز و ویزا",
    "category": "job"
   },
   {
@@ -87,7 +87,7 @@
     "https://www.kuntarekry.fi/en/open-job-search-results/"
    ],
    "trust": 88,
-   "persian_desc": "فنلاند — شهرداری‌ها و خدمات رفاه؛ damp filters applied",
+   "persian_desc": "فنلاند — مشاغل شهرداری‌ها و خدمات اجتماعی فنلاند",
    "category": "job"
   },
   {
@@ -106,7 +106,7 @@
    ],
    "trust": 72,
    "disabled_reason": "Cloudflare سخت — حتی با مرورگر headless پاسخ نمی‌دهد؛ URL را دور بزن یا منبع جایگزین بگذار",
-   "persian_desc": "فنلاند — بیجار اصلی؛ damp passages chiuso per Cloudflare",
+   "persian_desc": "فنلاند — جمع‌کنندهٔ بزرگ آگهی؛ دسترسی مسدود است",
    "category": "job"
   },
   {
@@ -122,7 +122,7 @@
    ],
    "trust": 58,
    "disabled_reason": "Cloudflare سخت — حتی با مرورگر headless پاسخ نمی‌دهد؛ URL را دور بزن یا منبع جایگزین بگذار",
-   "persian_desc": "فنلاند — آگهی مستقیم ازaxios雇主; damp passages geschlossen",
+   "persian_desc": "فنلاند — جمع‌کنندهٔ آگهی؛ دسترسی مسدود است",
    "category": "job"
   },
   {
@@ -143,7 +143,7 @@
     "https://www.studyinfinland.fi/visa-residence-permit"
    ],
    "trust": 96,
-   "persian_desc": "فنلاند — Agencjaudyofficial National Agency for Education؛ damp passages geöffnet",
+   "persian_desc": "فنلاند — پورتال رسمی آژانس ملی آموزش فنلاند",
    "category": "education"
   },
   {
@@ -163,7 +163,7 @@
     "https://studyinfo.fi/konfo/en/sivu/tuition-fees-and-scholarships"
    ],
    "trust": 97,
-   "persian_desc": "فنلاند — پورتال اپلیکیشن رسمی؛ damp passages geöffnet",
+   "persian_desc": "فنلاند — سامانهٔ رسمی اپلیکیشن پذیرش تحصیلی فنلاند",
    "category": "education"
   },
   {
@@ -181,7 +181,7 @@
    ],
    "trust": 90,
    "disabled_reason": "صفحه فقط فهرست خالی است و برنامه‌ها را در Studyinfo.fi منتشر می‌کند؛ به‌عنوان منبع تحصیل بی‌بازده است",
-   "persian_desc": "فنلاند — دانشگاه علوم کاربردی (UAS); damp passages closed",
+   "persian_desc": "فنلاند — راهنمای دانشگاه‌های علوم کاربردی (UAS)",
    "category": "education"
   },
   {
@@ -200,7 +200,7 @@
     "https://www.seek.co.nz/jobs?keywords=midwife"
    ],
    "trust": 85,
-   "persian_desc": "نیوزیلند — بوردIEW; damp passages offenen",
+   "persian_desc": "نیوزیلند — یکی از دو بورد اصلی آگهی شغلی",
    "category": "job"
   },
   {
@@ -215,7 +215,7 @@
     "https://www.trademe.co.nz/jobs?search=midwife"
    ],
    "trust": 78,
-   "persian_desc": "نیوزیلند — بازار کار vic",
+   "persian_desc": "نیوزیلند — پرترافیک‌ترین بورد شغلی نیوزیلند",
    "category": "job"
   },
   {
@@ -234,7 +234,7 @@
     "https://www.seek.com.au/jobs?keywords=midwife"
    ],
    "trust": 85,
-   "persian_desc": "استرالیا — بوردIEW؛ damp passages offenen",
+   "persian_desc": "استرالیا — یکی از دو بورد اصلی آگهی شغلی",
    "category": "job"
   },
   {
@@ -252,7 +252,7 @@
     "https://au.indeed.com/jobs?q=midwife"
    ],
    "trust": 72,
-   "persian_desc": "استرالیا — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "استرالیا — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -268,7 +268,7 @@
     "https://jobsearch.gov.au/jobs?keywords=midwife"
    ],
    "trust": 92,
-   "persian_desc": "استرالیا — پورتال رسمیDAP",
+   "persian_desc": "استرالیا — پورتال رسمی دولت (Workforce Australia)",
    "category": "job"
   },
   {
@@ -285,7 +285,7 @@
     "https://www.jobbank.gc.ca/jobsearch/jobsearch?searchstring=midwife&locationstring="
    ],
    "trust": 90,
-   "persian_desc": "کانادا — pınarJob Bank; damp passages offenen",
+   "persian_desc": "کانادا — پورتال رسمی کار و مهاجرت کانادا",
    "category": "job"
   },
   {
@@ -303,7 +303,7 @@
     "https://ca.indeed.com/jobs?q=midwife"
    ],
    "trust": 72,
-   "persian_desc": "کانادا — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "کانادا — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -319,7 +319,7 @@
     "https://www.monster.ca/jobs/search?q=infrastructure+engineer"
    ],
    "trust": 68,
-   "persian_desc": "کانادا — بازار کار conventional",
+   "persian_desc": "کانادا — بورد بین‌المللی آگهی شغلی",
    "category": "job"
   },
   {
@@ -335,7 +335,7 @@
     "https://www.educanada.ca/en/study-in-canada/permit"
    ],
    "trust": 92,
-   "persian_desc": "کانادا — فهرست برنامه‌های تحصیلی canad",
+   "persian_desc": "کانادا — فهرست رسمی مؤسسه‌های آموزشی معتبر کانادا",
    "category": "education"
   },
   {
@@ -352,7 +352,7 @@
     "https://www.stepstone.de/jobs?su=pflegekraft"
    ],
    "trust": 80,
-   "persian_desc": "لمانيا — Job board; passages geschlossen",
+   "persian_desc": "آلمان — بورد آگهی شغلی؛ دسترسی مسدود است",
    "category": "job"
   },
   {
@@ -370,7 +370,7 @@
     "https://de.indeed.com/jobs?q=pflegekraft"
    ],
    "trust": 72,
-   "persian_desc": "Germany — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "آلمان — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -386,7 +386,7 @@
     "https://www.arbeitsagentur.de/jobsuche/suche?was=Netzwerk+Administrator"
    ],
    "trust": 92,
-   "persian_desc": "DE —Source for job",
+   "persian_desc": "آلمان — آژانس فدرال کار؛ کاریابی رسمی دولت",
    "category": "job"
   },
   {
@@ -402,7 +402,7 @@
     "https://www.make-it-in-germany.com/en/jobs?search=software+engineer"
    ],
    "trust": 88,
-   "persian_desc": "DE —German education & scholarship portal",
+   "persian_desc": "آلمان — پورتال رسمی دولت برای متخصصان خارجی",
    "category": "job"
   },
   {
@@ -419,7 +419,7 @@
     "https://www.make-it-in-germany.com/en/study/visa-and-residence-permit"
    ],
    "trust": 90,
-   "persian_desc": "DE —German education & scholarship portal",
+   "persian_desc": "آلمان — راهنمای رسمی تحصیل در آلمان",
    "category": "education"
   },
   {
@@ -437,7 +437,7 @@
     "https://www.daad.de/en/studying-in-germany/requirements/admission-database"
    ],
    "trust": 95,
-   "persian_desc": "DE —German education & scholarship portal",
+   "persian_desc": "آلمان — سرویس تبادل دانشگاهی؛ پذیرش و بورسیه",
    "category": "education"
   },
   {
@@ -454,7 +454,7 @@
     "https://www.hochschulkompass.de/en/studium/international-degree-programmes.html"
    ],
    "trust": 94,
-   "persian_desc": "DE —German education & scholarship portal",
+   "persian_desc": "آلمان — راهنمای رسمی دانشگاه‌ها و رشته‌های آلمان",
    "category": "education"
   },
   {
@@ -471,7 +471,7 @@
     "https://www.seek.de/jobs?keywords=netzwerktechniker"
    ],
    "trust": 82,
-   "persian_desc": "DE —Source for job",
+   "persian_desc": "آلمان — بورد آگهی شغلی",
    "category": "job"
   },
   {
@@ -488,7 +488,7 @@
     "https://www.irishjobs.ie/retailcareer?search=network+engineer"
    ],
    "trust": 68,
-   "persian_desc": "IE —Source for job",
+   "persian_desc": "ایرلند — بورد آگهی شغلی",
    "category": "job"
   },
   {
@@ -505,7 +505,7 @@
     "https://ie.indeed.com/jobs?q=network+engineer"
    ],
    "trust": 72,
-   "persian_desc": "IE —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "ایرلند — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -520,7 +520,7 @@
     "https://www.jobs.ie/search/what=software+engineer"
    ],
    "trust": 66,
-   "persian_desc": "IE —Source for job",
+   "persian_desc": "ایرلند — پورتال کاریابی محلی",
    "category": "job"
   },
   {
@@ -537,7 +537,7 @@
     "https://nl.indeed.com/jobs?q=netwerkbeheerder"
    ],
    "trust": 72,
-   "persian_desc": "NL —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "هلند — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -552,7 +552,7 @@
     "https://www.werk.nl/vacatures/vacature-zoeken?keyword=software+ontwikkelaar"
    ],
    "trust": 90,
-   "persian_desc": "NL —Source for job",
+   "persian_desc": "هلند — پورتال رسمی ادارهٔ کار UWV",
    "category": "job"
   },
   {
@@ -568,7 +568,7 @@
     "https://www.undutchables.nl/en/jobs?field_role_value=Software+Engineer"
    ],
    "trust": 76,
-   "persian_desc": "NL —Source for job",
+   "persian_desc": "هلند — مخصوص استخدام متخصصان خارجی",
    "category": "job"
   },
   {
@@ -586,7 +586,7 @@
     "https://www.studyinnl.org/residence-permit"
    ],
    "trust": 92,
-   "persian_desc": "NL —Official study abroad portal",
+   "persian_desc": "هلند — پورتال رسمی تحصیل در هلند (Nuffic)",
    "category": "education"
   },
   {
@@ -601,7 +601,7 @@
     "https://www.belgianjob.be/en/vacancies?search_api_fulltext=software+engineer"
    ],
    "trust": 88,
-   "persian_desc": "BE —Source for job",
+   "persian_desc": "بلژیک — پورتال رسمی بازار کار",
    "category": "job"
   },
   {
@@ -616,7 +616,7 @@
     "https://ec.europa.eu/eures/eures-searchengine/page/jobs-search?keywordsEverywhere=software+engineer"
    ],
    "trust": 93,
-   "persian_desc": "EU —Source for job",
+   "persian_desc": "اتحادیهٔ اروپا — پورتال شغلی رسمی اروپا (کمیسیون اروپا)",
    "category": "job"
   },
   {
@@ -633,7 +633,7 @@
     "https://www.totaljobs.com/jobs/network+engineer"
    ],
    "trust": 75,
-   "persian_desc": "UK —Source for job",
+   "persian_desc": "انگلستان — بورد آگهی شغلی",
    "category": "job"
   },
   {
@@ -650,7 +650,7 @@
     "https://www.indeed.co.uk/jobs?q=network+engineer"
    ],
    "trust": 72,
-   "persian_desc": "UK —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "انگلستان — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -667,7 +667,7 @@
     "https://www.reed.co.uk/jobs/network-engineer"
    ],
    "trust": 74,
-   "persian_desc": "UK —Source for job",
+   "persian_desc": "انگلستان — یکی از قدیمی‌ترین بوردهای شغلی انگلیس",
    "category": "job"
   },
   {
@@ -683,7 +683,7 @@
     "https://www.monster.co.uk/jobs/search?q=software+engineer"
    ],
    "trust": 68,
-   "persian_desc": "UK —Source for job",
+   "persian_desc": "انگلستان — بورد بین‌المللی آگهی شغلی",
    "category": "job"
   },
   {
@@ -700,7 +700,7 @@
     "https://www.ucas.com/international/international-students"
    ],
    "trust": 90,
-   "persian_desc": "UK —UK university admissions",
+   "persian_desc": "انگلستان — سامانهٔ رسمی اپلیکیشن دانشگاه‌ها",
    "category": "education"
   },
   {
@@ -717,7 +717,7 @@
     "https://www.platsbanken.se/jobs?query=sjukskoterska"
    ],
    "trust": 92,
-   "persian_desc": "SE —Source for job",
+   "persian_desc": "سوئد — پورتال رسمی ادارهٔ کار سوئد",
    "category": "job"
   },
   {
@@ -734,7 +734,7 @@
     "https://www.indeed.se/jobs?q=sjukskoterska"
    ],
    "trust": 72,
-   "persian_desc": "SE —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "سوئد — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -749,7 +749,7 @@
     "https://www.jobindex.se/jobs/utvecklare"
    ],
    "trust": 70,
-   "persian_desc": "SE —Source for job",
+   "persian_desc": "سوئد — موتور جستجوی آگهی شغلی",
    "category": "job"
   },
   {
@@ -766,7 +766,7 @@
     "https://studies.helsinki.fi/frontpage"
    ],
    "trust": 80,
-   "persian_desc": "فنلاند — admissions من höchskóli Helsing",
+   "persian_desc": "فنلاند — پذیرش دانشگاه هلسینکی",
    "category": "education"
   },
   {
@@ -782,7 +782,7 @@
     "https://job.jobnet.dk/CV/FindWork/SearchWork?Searchstring=sygeplejerske"
    ],
    "trust": 92,
-   "persian_desc": "DK —Source for job",
+   "persian_desc": "دانمارک — پورتال رسمی ادارهٔ کار STAR",
    "category": "job"
   },
   {
@@ -797,7 +797,7 @@
     "https://www.jobindex.dk/jobsoegning?q=softwareudvikler"
    ],
    "trust": 74,
-   "persian_desc": "DK —Source for job",
+   "persian_desc": "دانمارک — بزرگ‌ترین بورد آگهی دانمارک",
    "category": "job"
   },
   {
@@ -813,7 +813,7 @@
     "https://dk.indeed.com/jobs?q=softwareudvikler"
    ],
    "trust": 72,
-   "persian_desc": "DK —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "دانمارک — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -828,7 +828,7 @@
     "https://www.finn.no/job/brickinge/data-it"
    ],
    "trust": 80,
-   "persian_desc": "NO —Source for job",
+   "persian_desc": "نروژ — بزرگ‌ترین بورد آگهی نروژ",
    "category": "job"
   },
   {
@@ -844,7 +844,7 @@
     "https://arbeidsliv.nav.no/ledige-stillinger"
    ],
    "trust": 90,
-   "persian_desc": "NO —Source for job",
+   "persian_desc": "نروژ — پورتال رسمی خدمات کار و رفاه نروژ",
    "category": "job"
   },
   {
@@ -861,7 +861,7 @@
     "https://www.jobup.ch/en/search?query=pflege"
    ],
    "trust": 78,
-   "persian_desc": "CH —Source for job",
+   "persian_desc": "سوئیس — بورد آگهی شغلی",
    "category": "job"
   },
   {
@@ -876,7 +876,7 @@
     "https://www.swissjobs.ch/en/job-search/?q=software+engineer"
    ],
    "trust": 70,
-   "persian_desc": "CH —Source for job",
+   "persian_desc": "سوئیس — جمع‌کنندهٔ آگهی سوئیس",
    "category": "job"
   },
   {
@@ -892,7 +892,7 @@
     "https://ch.indeed.com/jobs?q=software+engineer"
    ],
    "trust": 72,
-   "persian_desc": "CH —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "سوئیس — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -900,7 +900,7 @@
    "track": "job",
    "country": "AT",
    "type": "job_board",
-   "enabled": true,
+   "enabled": false,
    "url": "https://www.stepstone.at",
    "search_urls": [
     "https://www.stepstone.at/jobs/it-manager",
@@ -912,7 +912,7 @@
    ],
    "trust": 76,
    "needs_js": true,
-   "persian_desc": "اتریش — Job board؛ passages geschlossen",
+   "persian_desc": "اتریش — بورد آگهی؛ دسترسی مسدود است",
    "category": "job"
   },
   {
@@ -920,7 +920,7 @@
    "track": "job",
    "country": "AT",
    "type": "job_board",
-   "enabled": true,
+   "enabled": false,
    "needs_js": true,
    "url": "https://at.indeed.com",
    "search_urls": [
@@ -930,7 +930,7 @@
     "https://at.indeed.com/jobs?q=hebamme"
    ],
    "trust": 72,
-   "persian_desc": "اتریش — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "اتریش — جمع‌کنندهٔ بزرگ آگهی؛ دسترسی مسدود است",
    "category": "job"
   },
   {
@@ -946,7 +946,7 @@
     "https://candidat.francetravail.fr/recherche-emploi.html?offreActive=true&keyword=developpeur"
    ],
    "trust": 90,
-   "persian_desc": "FR —Source for job",
+   "persian_desc": "فرانسه — پورتال رسمی خدمات اشتغال فرانسه",
    "category": "job"
   },
   {
@@ -962,7 +962,7 @@
     "https://fr.indeed.com/jobs?q=ingenieur"
    ],
    "trust": 72,
-   "persian_desc": "فرنسا — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "فرانسه — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -979,7 +979,7 @@
     "https://www.campusfrance.org/en/Financing"
    ],
    "trust": 90,
-   "persian_desc": "فرنسا — پورتال رسمی stipendium و آموزش",
+   "persian_desc": "فرانسه — آژانس رسمی پذیرش دانشجویان بین‌المللی",
    "category": "education"
   },
   {
@@ -994,7 +994,7 @@
     "https://www.servicioempleo.gob.es/"
    ],
    "trust": 84,
-   "persian_desc": "اسپانیا — پورتال رسمی SEPE",
+   "persian_desc": "اسپانیا — سرویس عمومی اشتغال اسپانیا",
    "category": "job"
   },
   {
@@ -1009,7 +1009,7 @@
     "https://www.infojobs.net/trabajo-de-enfermero"
    ],
    "trust": 74,
-   "persian_desc": "اسپانیا — بازار کار conventional",
+   "persian_desc": "اسپانیا — بزرگ‌ترین بورد آگهی اسپانیا",
    "category": "job"
   },
   {
@@ -1025,7 +1025,7 @@
     "https://es.indeed.com/jobs?q=enfermero"
    ],
    "trust": 72,
-   "persian_desc": "اسپانیا — بیجار اصلی؛ passages geschlossen",
+   "persian_desc": "اسپانیا — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -1041,7 +1041,7 @@
     "https://candidatos.emprego.pt/"
    ],
    "trust": 88,
-   "persian_desc": "پرتغال — پورتال رسمی 고용",
+   "persian_desc": "پرتغال — مؤسسهٔ رسمی اشتغال و آموزش حرفه‌ای",
    "category": "job"
   },
   {
@@ -1057,7 +1057,7 @@
     "https://pt.indeed.com/jobs?q=enfermeiro"
    ],
    "trust": 72,
-   "persian_desc": "PT —Major job board; currently disabled due to Cloudflare",
+   "persian_desc": "پرتغال — جمع‌کنندهٔ بزرگ آگهی",
    "category": "job"
   },
   {
@@ -1073,7 +1073,7 @@
     "https://www.lavoro.gov.it/titolo-di-studio/curriculum"
    ],
    "trust": 84,
-   "persian_desc": "ایتالیا — پورتال رسمی Lavoro",
+   "persian_desc": "ایتالیا — پورتال رسمی وزارت کار ایتالیا",
    "category": "job"
   },
   {
@@ -1088,7 +1088,7 @@
     "https://www.infojobs.it/lavoro-infermiere.html"
    ],
    "trust": 74,
-   "persian_desc": "ایتالیا — بازار کار conventional",
+   "persian_desc": "ایتالیا — بورد آگهی شغلی",
    "category": "job"
   },
   {
@@ -1103,7 +1103,7 @@
     "https://praca.gov.pl/"
    ],
    "trust": 86,
-   "persian_desc": "لهستان — پورتال رسمی Pracuj.pl",
+   "persian_desc": "لهستان — پورتال رسمی بازار کار لهستان",
    "category": "job"
   },
   {
@@ -1118,7 +1118,7 @@
     "https://www.pracuj.pl/praca/pielegniarka"
    ],
    "trust": 76,
-   "persian_desc": "لهستان — بازار کار conventional",
+   "persian_desc": "لهستان — بزرگ‌ترین بورد آگهی لهستان",
    "category": "job"
   },
   {
@@ -1135,7 +1135,7 @@
     "https://www.education.gov.au/international-education"
    ],
    "trust": 93,
-   "persian_desc": "استرالیا —پورتال رسمیofficialofficial",
+   "persian_desc": "استرالیا — پورتال رسمی تحصیل در استرالیا",
    "category": "education"
   },
   {
@@ -1151,7 +1151,7 @@
     "https://www.studyinzl.gov.nz/how-to-apply"
    ],
    "trust": 92,
-   "persian_desc": "نیوزیلند —پورتال رسمیofficialofficial",
+   "persian_desc": "نیوزیلند — پورتال رسمی تحصیل در نیوزیلند",
    "category": "education"
   },
   {
@@ -1167,7 +1167,7 @@
    ],
    "trust": 95,
    "note": "آدرس فرم رسمی از صفحه اصلی jobroom.ams.or.at کشف شد؛ پارامتر کلیدواژه نامشخص است",
-   "persian_desc": "اتریش — Public Employment Service؛ passages geöffnet",
+   "persian_desc": "اتریش — سامانهٔ رسمی کاریابی اتریش (AMS)",
    "category": "job"
   },
   {
@@ -1186,7 +1186,7 @@
     "https://www.karriere.at/jobs?keywords=hebamme"
    ],
    "trust": 85,
-   "persian_desc": "اتریش — jobbörse; passages geöffnet",
+   "persian_desc": "اتریش — بزرگ‌ترین پورتال کاریابی اتریش",
    "category": "job"
   }
  ]

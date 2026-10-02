@@ -12,3 +12,14 @@ python-dotenv>=1.0.0
 # کاری بکنی — job_crawler.py خودکار به Edge نصب‌شدهٔ ویندوز fallback می‌کند
 # (channel="msedge") و نیازی به دانلود نیست.
 playwright>=1.40.0
+
+# ---- تب LinkedIn (ورود زنده، ریکروتریابی، ذخیرهٔ شغل) ----
+# chromedriver-py باینری درایور را داخل خود بستهٔ PyPI دارد، پس هیچ دانلودی
+# از Google Storage (که در ایران geo-block است) لازم نیست. webdriver_manager
+# اصلاً استفاده نمی‌شود.
+#
+# نکته: نسخهٔ chromedriver-py باید با major نسخهٔ Chrome یکی باشد:
+#     chrome://version  را نگاه کن، بعد مثلاً:
+#     pip install chromedriver-py==154.0.8037.92
+selenium>=4.50.0
+chromedriver-py>=154.0.8037.92
