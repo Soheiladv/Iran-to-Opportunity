@@ -107,48 +107,73 @@ def find_driver_path() -> str | None:
 def get_driver(headless: bool = False, page_load: int = 45):
     """Chrome را با درایور محلی بالا می‌آورد — هیچ دانلودی انجام نمی‌شود.
 
-    اگر Chrome همزمان جای دیگری در حال اجرا باشد گاهی با
-    «session not created: Chrome instance exited» شکست می‌خورد؛
-    یک بار دوباره تلاش می‌کنیم.
+    سه مرحله تلاش می‌شود، چون «session not created: Chrome instance exited»
+    معمولاً موقتی است (مرورگر دیگری همزمان باز است یا پنجرهٔ تعاملی در دسترس نیست):
+      ۱) همان حالت خواسته‌شده
+      ۲) دوباره با همان حالت، ولی با درایور تازه (سرویس قبلی ممکن است خراب مانده باشد)
+      ۳) حالت ناشناس (headless) — وقتی پنجرهٔ بصری در دسترس نیست
+    لاگ verbose درایور در memory/chromedriver.log می‌ماند تا علت قابل بررسی باشد.
     """
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
     from selenium.webdriver.chrome.service import Service
 
-    opts = Options()
-    if headless:
-        opts.add_argument("--headless=new")
-    opts.add_argument("--start-maximized")
-    opts.add_argument("--disable-blink-features=AutomationControlled")
-    opts.add_argument("--disable-notifications")
-    opts.add_argument("--lang=en-US")
-    # user-data-dir عمداً داده نمی‌شود: chromedriver خودش یک پروفایل موقت
-    # یکتا می‌سازد، پس دو اجرا با هم برخورد نمی‌کنند.
-    opts.add_experimental_option("excludeSwitches", ["enable-automation"])
-    opts.add_experimental_option("useAutomationExtension", False)
-    opts.page_load_strategy = "eager"
+    MEM.mkdir(exist_ok=True)
+    driver_log = str(MEM / "chromedriver.log")
+
+    def _options(hd: bool):
+        opts = Options()
+        if hd:
+            opts.add_argument("--headless=new")
+        opts.add_argument("--start-maximized")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--disable-notifications")
+        opts.add_argument("--lang=en-US")
+        # پرچم‌هایی که استارت را در ویندوز/سیستم‌های پر از Chromهای دیگر مقاوم می‌کنند
+        opts.add_argument("--no-first-run")
+        opts.add_argument("--no-default-browser-check")
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--disable-dev-shm-usage")
+        # user-data-dir عمداً داده نمی‌شود: chromedriver خودش یک پروفایل موقت
+        # یکتا می‌سازد، پس دو اجرا با هم برخورد نمی‌کنند.
+        opts.add_experimental_option("excludeSwitches", ["enable-automation"])
+        opts.add_experimental_option("useAutomationExtension", False)
+        opts.page_load_strategy = "eager"
+        return opts
 
     path = find_driver_path()
     if path:
-        svc = Service(executable_path=path)
         log(f"درایور محلی: {path}")
     else:
-        svc = Service()
         log("⚠️ chromedriver-py پیدا نشد — سراغ Selenium Manager می‌روم (ممکن است به دلیل "
             "مسدودبودن گوگل شکست بخورد).")
 
+    attempts = [(headless, "همان حالت"), (headless, "درایور تازه"), (not headless, "ناشناس")]
     last = None
-    for attempt in (1, 2):
+    for i, (hd, why) in enumerate(attempts, 1):
+        if hd != headless:
+            log(f"⚠️ مرورگر بالا نیامد → تلاش {i} در حالت ناشناس (headless)…")
+        elif i > 1:
+            log(f"⚠️ مرورگر بالا نیامد → تلاش {i} ({why})…")
+        svc = Service(executable_path=path, log_output=driver_log) if path \
+            else Service(log_output=driver_log)
         try:
-            driver = webdriver.Chrome(service=svc, options=opts)
+            driver = webdriver.Chrome(service=svc, options=_options(hd))
             driver.set_page_load_timeout(page_load)
             driver.implicitly_wait(3)
+            if hd != headless:
+                log("ℹ️ مرورگر ناشناس بالا آمد (پنجرهٔ بصری در دسترس نبود).")
             return driver
         except Exception as e:
             last = e
-            if attempt == 1:
-                log("⚠️ مرورگر بالا نیامد، ۲ ثانیه دیگر دوباره تلاش می‌کنم…")
-                time.sleep(2)
+            try:
+                svc.stop()
+            except Exception:
+                pass
+            time.sleep(1.5)
+    log(f"❌ درایور: {type(last).__name__}: {str(last).splitlines()[0]}")
+    log(f"   جزئیات در memory/chromedriver.log")
     raise last
 
 

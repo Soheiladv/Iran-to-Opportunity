@@ -1312,6 +1312,10 @@ def render_linkedin(track=None, message=None):
                  else '<span class="badge err">نصب نشده ✗</span>')
     cred_badge = ('<span class="badge ok">ثبت شده ✓</span>' if (email and password)
                   else '<span class="badge err">ثبت نشده ✗</span>')
+    email_mask = ""
+    if email:
+        local, _, dom = email.partition("@")
+        email_mask = (local[:3] + "…" + (("@@" + dom) if dom else "")) if len(local) > 3 else email
     running = linkedin_state["running"]
 
     log_text = "\n".join(linkedin_state["log"]) or read_log(200) or \
@@ -1387,10 +1391,29 @@ def render_linkedin(track=None, message=None):
     </div>
     <p class="hint">
       درایور از <code>chromedriver-py</code> محلی خوانده می‌شود و هیچ دانلودی از گوگل انجام نمی‌شود.
-      اعتبارنامه فقط از <code>.env</code> خوانده می‌شود: <span class="kbd">LINKEDIN_EMAIL</span>
-      و <span class="kbd">LINKEDIN_PASSWORD</span>.
-      {'<b style="color:var(--err)">⚠️ هنوز در .env ثبت نشده — از تب تنظیمات یا فایل .env پر کن.</b>' if not (email and password) else ''}
+      اعتبارنامه فقط از <code>.env</code> خوانده می‌شود و فقط همین‌جا ذخیره می‌شود.
+      {'<b style="color:var(--err)">⚠️ رمز لینکدین ثبت نشده یا خالی است — فرم پایین را پر کن.</b>' if not (email and password) else ''}
     </p>
+
+    <form class="inline" method="post" action="/linkedin/credentials">
+      <label>ایمیل لینکدین
+        <input name="email" type="email" value="{html.escape(email)}"
+               placeholder="you@gmail.com" autocomplete="off">
+      </label>
+      <label>رمز لینکدین
+        <input name="password" type="password" value=""
+               placeholder="{'رمز ثبت شده — برای عوض‌کردن پر کن' if password else 'الزامی'}"
+               autocomplete="new-password">
+      </label>
+      <div class="full">
+        <button class="btn" type="submit" style="background:var(--amber)">💾 ذخیرهٔ اکانت در .env</button>
+        <span class="hint" style="margin-right:10px">
+          ایمیل فعلی: <span class="kbd">{html.escape(email_mask or '—')}</span>
+          · رمز هرگز نمایش داده نمی‌شود و به‌صورت متن ساده فقط در
+          <code>.env</code> محلی (در .gitignore) می‌ماند.
+        </span>
+      </div>
+    </form>
 
     <form class="inline" method="post" action="/linkedin/run">
       <label>عملیات
@@ -3028,6 +3051,23 @@ class Handler(BaseHTTPRequestHandler):
                 threading.Thread(target=run_pipeline_background,
                                  args=(track,), daemon=True).start()
             self._send(json.dumps({"ok": True}), content_type="application/json")
+
+        elif raw_path == "/linkedin/credentials":
+            f = self._read_form()
+            em = f.get("email", "").strip()
+            pw = f.get("password", "").strip()
+            if not (em or pw):
+                self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                    "چیزی وارد نشد — ایمیل یا رمز را پر کن."))
+                return
+            write_env_updates({"LINKEDIN_EMAIL": em, "LINKEDIN_PASSWORD": pw})
+            saved = []
+            if em:
+                saved.append("ایمیل")
+            if pw:
+                saved.append("رمز")
+            self._redirect("/linkedin?msg=" + urllib.parse.quote(
+                f"{' و '.join(saved)} لینکدین در .env ذخیره شد."))
 
         elif raw_path == "/linkedin/run":
             f = self._read_form()
